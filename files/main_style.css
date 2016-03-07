@@ -1,0 +1,481 @@
+ @import url('//fonts.googleapis.com/css?family=Maven+Pro:500,900,400,700?1457340731'); @import url('//fonts.googleapis.com/css?family=Muli:400,400italic?1457340731'); ul, ol, li, h1, h2, h3, h4, h5, h6, pre, form, body, html, p, blockquote, fieldset, input, iframe, img { margin: 0; padding: 0; font-size:100%; border:0; }
+ a img { border: 0; }
+ a { text-decoration: none; }
+ body { -webkit-font-smoothing: antialiased; -moz-font-smoothing: antialiased; -o-font-smoothing: antialiased; }
+ input:focus, select:focus, textarea:focus, button:focus { outline: none; }
+ html { height: 100% !important; }
+ body { width: 100%; height: 100%; background: #ffffff; color: #333333; font: 15px/1 'Times New Roman', Times, serif; }
+ #mobile-input { display: none; }
+ #wrapper { display: block; width:100%; max-width: 1600px; height: 100%; box-sizing: border-box; }
+ #navigation { position: fixed; display: block; width: 225px; height: 100%; overflow-y: auto; z-index: 10; }
+ #navigation-wrap { display: table; width: 100%; height: 100%; padding: 0 20px 0 40px; vertical-align: middle; box-sizing: border-box; }
+ #main { position: relative; left: 0; display: block; padding: 40px 40px 40px 245px; vertical-align: top; z-index: 9; }
+ #wsite-title, h2 { font-family: "Maven Pro", sans-serif; font-weight: 900 !important; line-height: 1 !important; text-transform: uppercase; }
+ .sitename { margin: 0 auto 1em; }
+ #wsite-title { font-size: 1.5em; display: inline-block; background: #000; color: #ffffff; padding: .1em .25em .15em; }
+ .wsite-logo a img { max-width: 165px; }
+ a, a:hover { color: #000000; text-decoration: none; -webkit-transition: all 200ms linear; -moz-transition: all 200ms linear; -o-transition: all 200ms linear; -ms-transition: all 200ms linear; transition: all 200ms linear; }
+ div.paragraph, div.paragraph { font-size: 1.15em; margin: 0 auto 2em; line-height: 1.75; word-wrap: break-word; }
+ div.paragraph, p { font-size: 1.15em; margin: 0 auto 2em; line-height: 1.75; word-wrap: break-word; }
+ blockquote { color: #3f3f3f; font: 1.15em/ 1.5 "Maven Pro", sans-serif; font-weight: 900; font-style: italic; margin: 2em 3em !important; padding: 0 !important; border: none !important; text-transform: uppercase; }
+ .wsite-image { font-family: "Maven Pro", sans-serif; font-weight: 700; }
+ #content h2 { font-size: 1.5em; margin: 0 auto 1em; }
+ #content .paragraph a, .blog-read-more a, #commentUserInfo a { color: #b3b3b3; }
+ #content .paragraph a:hover, #content .paragraph a:focus, #commentUserInfo a:hover, #commentUserInfo a:focus { border-bottom: 1px solid #b3b3b3; }
+ @media (max-width: 991px) {
+ body { width: 100%; }
+ body:not(.splash-page) { height: auto !important; min-height: 100%; }
+ #navigation { position: fixed; width: 40% !important; top: 0; left: -110% !important; vertical-align: middle; z-index: 11; overflow: hidden; -webkit-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53) !important; -moz-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53) !important; -o-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53) !important; -ms-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53) !important; transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53) !important; -webkit-box-shadow: inset -5px 0px 10px 0px rgba(50, 50, 50, 0.2); -moz-box-shadow: inset -5px 0px 10px 0px rgba(50, 50, 50, 0.2); box-shadow: inset -5px 0px 10px 0px rgba(50, 50, 50, 0.2); }
+ #navigation .sitename { display: none; }
+ #navigation-wrap { display: block; width: 100% !important; padding: 40px 20px; vertical-align: middle; box-sizing: border-box; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+ body.menu-open #wrapper #navigation { left: 0 !important; }
+ #main { padding: 20px 40px 40px !important; -webkit-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53) !important; -moz-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53) !important; -o-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53) !important; -ms-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53) !important; transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53) !important; }
+ body.menu-open #wrapper #main { left: 40%; }
+ div.paragraph, .blogCommentText div.paragraph, #secondlist .blogCommentText div.paragraph { font-size: 1em !important; line-height: 1.5 !important; }
+ div.paragraph, .blogCommentText p, #secondlist .blogCommentText p { font-size: 1em !important; line-height: 1.5 !important; }
+ }
+ @media (max-width: 767px) {
+ #content { font-size: 14px; line-height: 1.5; }
+ #navigation-wrap { background: #ffffff !important; }
+ #navigation { width: 100% !important; background: #ffffff; -webkit-box-shadow: none; -moz-box-shadow: none; box-shadow: none; }
+ .wsite-logo a #wsite-title, .wsite-logo a:hover #wsite-title{ font-size: 18px; padding: 0.1em .25em .17em; }
+ #main { padding: 20px !important; }
+ body.menu-open #wrapper #main { left: 100%; }
+ .wsite-multicol-col { max-width: 100% !important; display: block; width: auto !important; margin: 0 auto 2em !important; }
+ #content h2 { font-size: 1.25em !important; line-height: 1 !important; margin: 0 auto 1.25em; }
+ blockquote { margin: 1em 1em 1.5em !important; }
+ }
+ #nav { display: table-cell; vertical-align: middle; }
+ #navmobile { display: none; }
+ #nav ul, #navmobile ul { list-style: none; display: block; margin: 0 auto; text-transform: uppercase; }
+ #nav ul li, #navmobile ul li { list-style: none; display: block; margin: 0; font: 14px/1 "Maven Pro", sans-serif; font-weight: 900; }
+ #nav ul li a, #navmobile ul li a { color: #000000; display: block; font-weight: 900 !important; font-size: 15px; padding: 6px 0; cursor: pointer; }
+ #nav ul li#active a, #nav ul li a:hover, #nav ul li a:focus, #navmobile ul li#active a, #navmobile ul li a:hover, #navmobile ul li a:focus { color: #b3b3b3; }
+ #mobile-top, #mobile-close { display: none; }
+ @media (max-width: 991px) {
+ #mobile-top { position: relative; width: 100%; display: block; text-align: left; }
+ #mobile-top .sitename { margin: 0 auto 20px; overflow: hidden; width: 100%; padding: 0 40px; box-sizing: border-box; text-align: center; }
+ #mobile-top .sitename * { max-width: 100%; white-space: normal; }
+ #site-logo { max-width: 90%; }
+ .wsite-logo a img { max-height: 40px; }
+ #mobile-open { position: absolute; display: block; top: 50%; margin-top: -8px; width: 28px; height: 17px; background: url(theme/images/menu.png?1457340731) no-repeat center center; background-size: 100% 100%; }
+ #mobile-close { position: absolute; display: block; top: 22px; right: 20px; width: 20px; height: 20px; background: url(theme/images/close.png?1457340731) no-repeat center center /100% auto; }
+ #nav { display: none; }
+ #navmobile { display: block; }
+ .wsite-mobile-menu { padding: 5px 0; -webkit-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53) !important; -moz-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53) !important; -o-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53) !important; -ms-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53) !important; transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53) !important; }
+ }
+ @media (max-width: 767px) {
+ #mobile-top { text-align: center; }
+ #site-logo { max-width: 80%; }
+ #mobile-open { left: 0; right: auto !important; }
+ }
+ #wsite-menus, .wsite-menu-wrap, .wsite-menu { font-size: inherit !important; }
+ #wsite-menus .wsite-menu-wrap .wsite-menu { background: none; }
+ #wsite-menus span.wsite-menu-title { text-transform: uppercase; padding: 0 !important; }
+ #wsite-menus .wsite-menu li a { font: 14px/1 "Maven Pro", sans-serif; font-weight: 900; color: #ffffff; background: #000000 !important; border: none !important; padding: 5px 10px !important; }
+ #wsite-menus .wsite-menu li:first-child a { padding-top: 10px !important; }
+ #wsite-menus .wsite-menu li:last-child a { padding-bottom: 10px !important; }
+ #wsite-menus .wsite-menu li a:hover, #wsite-menus .wsite-menu li a:focus { color: #b3b3b3; }
+ #wsite-menus > .wsite-menu-wrap > .wsite-menu > li > a { color: #ffffff !important; background: #b3b3b3 !important; }
+ #wsite-menus > .wsite-menu-wrap > .wsite-menu > li > a:hover, #wsite-menus > .wsite-menu-wrap > .wsite-menu > li > a:focus { color: #000000 !important; }
+ #wsite-menus .wsite-menu li a .wsite-menu-arrow { text-indent: -9999px; right: 10px !important; background: url(theme/images/menu-arrow-light.png?1457340731); width: 4px !important; height: 8px !important; margin-top: -4px !important; }
+ #wsite-menus .wsite-menu li:first-child a .wsite-menu-arrow { margin-top: 0px !important; }
+ #wsite-menus .wsite-menu li:last-child a .wsite-menu-arrow { margin-top: -4px !important; }
+ #wsite-menus .wsite-menu li a:hover .wsite-menu-arrow, #wsite-menus .wsite-menu li a:focus .wsite-menu-arrow { background: url(theme/images/menu-arrow-dark.png?1457340731) !important; }
+ @media (max-width: 991px) {
+ .wsite-menu-title, .wsite-menu-back { display: inline-block !important; }
+ .wsite-menu-arrow { display: none !important; }
+ .wsite-menu-mobile-arrow { display: inline-block !important; font-size: inherit !important; padding: 0 5px; }
+ .wsite-menu-mobile-arrow::before { display: inline-block; content: '\203A'; vertical-align: bottom; }
+ .wsite-menu-back-item .wsite-menu-mobile-arrow { padding: 0 5px 0 0; }
+ .wsite-menu-back-item .wsite-menu-mobile-arrow::before { content: '\2039' !important; }
+ }
+ #banner-wrap { position: relative; margin: 0 auto 3em; }
+ #banner { height: 100%; width: 100%; left: 0; top: 0; text-align: center; }
+ #banner::before { content: ''; display: inline-block; height: 100%; vertical-align: middle; }
+ #banner-content { display: inline-block; text-align: left; vertical-align: middle; width: 75%; line-height: 2; }
+ .wsite-background { width: 100%; background: url(theme/images/background.jpg?1457340731) no-repeat center center /cover; }
+ .wsite-background::before { content: ""; display: block; }
+ #banner h2, #banner div.paragraph, #banner .paragraph { text-align: left !important; font-family: "Maven Pro", sans-serif; font-weight: 900; }
+ #banner h2, #banner p, #banner .paragraph { text-align: left !important; font-family: "Maven Pro", sans-serif; font-weight: 900; }
+ #banner div.paragraph { margin: 0 auto; }
+ #banner p { margin: 0 auto; }
+ @media (max-width: 991px){
+ #banner { font-size: 10px !important; }
+ }
+ @media (min-width: 992px) and (max-width: 1200px){
+ #banner { font-size: 12px; }
+ }
+ .splash-page #wrapper, .splash-page #main, .splash-page .wsite-background, .splash-page #banner-wrap, .splash-page #banner { height: 100%; box-sizing: border-box; }
+ .splash-page #banner-wrap { margin: 0 auto; }
+ .splash-page #wsite-content > div { margin: 0 auto; }
+ .splash-page #banner::before { content: ''; display: inline-block; height: 100%; vertical-align: middle; }
+ .splash-page.postload #banner::before { padding-top: 0; }
+ .splash-page #banner { display: inline-block; vertical-align: middle; width: 100%; box-sizing: border-box; }
+ .splash-page #banner .paragraph, .splash-page #banner h2, .splash-page #banner h2 span { display: block; padding: 0 .15em .1em; background: #000000; color: #ffffff; }
+ .splash-page #banner h2, .splash-page h2 span { font-size: 3.5em; display: inline-block; padding: 0 .15em .1em; }
+ .splash-page #banner h2 span { font-size: 1em; display: inline-block !important; padding: 0 .15em .1em; }
+ .splash-page.postload #banner h2 { display: block; padding: 0; background: none; }
+ .splash-page .paragraph { font-size: 2em; font-family: "Maven Pro", sans-serif; font-weight: 900; text-transform: uppercase; margin: 0 0 1em !important; }
+ .splash-page.postload #banner > div h2, .splash-page.postload #banner > div .paragraph { box-shadow: none !important; }
+ .splash-page .wsite-footer, .splash-page #footer { display: none; }
+ @media (max-width: 991px) {
+ .splash-page #wrapper, .splash-page #main, .splash-page .wsite-background, .splash-page #banner-wrap, .splash-page #banner { background-color: transparent !important; height: 98%; }
+ }
+ @media (min-width: 768px) and (max-width: 991px) {
+ .splash-page .wsite-background { background-position: center -48px !important; }
+ }
+ .landing-page .wsite-background::before { padding-top: 53.02682%; }
+ .landing-page #banner h2 > span, .splash-page #banner h2 { margin: 0 auto .45em; }
+ .landing-page #banner h2 > span { display: inline-block; font-size: 3.5em; background: #000000; color: #ffffff; padding: 0 .15em .1em; }
+ .landing-page #banner div.paragraph { display: inline-block; color: #ffffff; font-family: "Maven Pro", sans-serif; font-weight: 900; font-size: 2em; line-height: 1 !important; text-transform: uppercase; }
+ .landing-page #banner p { display: inline-block; color: #ffffff; font-family: "Maven Pro", sans-serif; font-weight: 900; font-size: 2em; line-height: 1 !important; text-transform: uppercase; }
+ .landing-page #banner div.paragraph > span { display: inline-block; background: #000000; padding: .12em .3em .18em; margin-bottom: 1em; }
+ .landing-page #banner p > span { display: inline-block; background: #000000; padding: .12em .3em .18em; margin-bottom: 1em; }
+ .splash-page #banner .paragraph { display: inline-block; background: #000000; color: #ffffff; font-family: "Maven Pro", sans-serif; font-weight: 900; font-size: 2em !important; padding: .12em .3em .18em !important; line-height: 1 !important; text-transform: uppercase; }
+ .landing-page #banner .button-wrap { text-align: left !important; margin: 0 auto !important; }
+ @media (max-width: 767px){
+ .landing-page #banner h2 > span, .splash-page #banner h2, .tall-header-page #banner h2 > span { font-size: 2em !important; }
+ .landing-page #banner div.paragraph, .splash-page #banner .paragraph, .tall-header-page #banner div.paragraph,.short-header-page #banner h2 > span, .title-page #banner div.paragraph { font-size: 1.1em !important; }
+ .landing-page #banner p, .splash-page #banner .paragraph, .tall-header-page #banner p,.short-header-page #banner h2 > span, .title-page #banner p { font-size: 1.1em !important; }
+ }
+ .tall-header-page .wsite-background::before { padding-top: 42.29885%; }
+ .tall-header-page #banner h2 { margin: 0 auto .45em; }
+ .tall-header-page #banner h2 > span { display: inline-block; font-size: 3.5em; background: #000000; color: #ffffff; padding: 0 .15em .1em; }
+ .tall-header-page #banner div.paragraph { display: inline-block; color: #ffffff; font-family: "Maven Pro", sans-serif; font-weight: 900; font-size: 2em; line-height: 1 !important; text-transform: uppercase; }
+ .tall-header-page #banner p { display: inline-block; color: #ffffff; font-family: "Maven Pro", sans-serif; font-weight: 900; font-size: 2em; line-height: 1 !important; text-transform: uppercase; }
+ .tall-header-page #banner div.paragraph > span { display: inline-block; background: #000000; padding: .12em .3em .18em; }
+ .tall-header-page #banner p > span { display: inline-block; background: #000000; padding: .12em .3em .18em; }
+ .short-header-page .wsite-background::before { padding-top: 27.126437%; }
+ .short-header-page #banner h2 > span { display: inline-block; font-weight: 900; font-size: 2em; padding: .12em .3em .18em; line-height: 1 !important; background: #000000; color: #ffffff; }
+ .title-page .wsite-background::before { padding-top: 27.126437%; }
+ .title-page #banner div.paragraph { line-height: 2; }
+ .title-page #banner p { line-height: 2; }
+ .title-page #banner div.paragraph > span { display: inline; background: #000000; color: #ffffff; font-family: "Maven Pro", sans-serif; font-weight: 900; font-size: 1.8em; padding: 0 0 .1em; box-shadow: -.3em 0 0 0 #000000, .3em 0 0 0 #000000; line-height: 0.5 !important; text-transform: uppercase; }
+ .title-page #banner p > span { display: inline; background: #000000; color: #ffffff; font-family: "Maven Pro", sans-serif; font-weight: 900; font-size: 1.8em; padding: 0 0 .1em; box-shadow: -.3em 0 0 0 #000000, .3em 0 0 0 #000000; line-height: 0.5 !important; text-transform: uppercase; }
+ .title-page #banner-content { width: 85%; }
+ @media (max-width: 767px){
+ .title-page #banner div.paragraph { line-height: 1 !important; }
+ .title-page #banner p { line-height: 1 !important; }
+ .title-page #banner div.paragraph > span { font-size: 1em !important; }
+ .title-page #banner p > span { font-size: 1em !important; }
+ }
+ #content { width: 100%; margin: 0 auto; z-index: 12; }
+ .wsite-form-field { margin: 0 0 2em !important; }
+ .wsite-form-label, #commentPostDiv .field label { display: inline-block; color: #000000; font-family: "Maven Pro", sans-serif; font-size: 1.15em; font-weight: 900; text-transform: uppercase; line-height: 1; padding: 0 0 .5em; }
+ .form-required { color: #000000; font-weight: normal !important; }
+ .wsite-form-input, .wsite-form-field select, .wsite-com-product-option select { height: auto !important; font-size: 1.15em; font-family: 'Times New Roman', Times, serif; color: #000000; background: #ffffff; padding: 12px !important; border-radius: 0 !important; border: 1px solid #cccccc; -webkit-box-shadow: 0px 4px 0px 0px #ffffff; -moz-box-shadow: 0px 4px 0px 0px #ffffff; box-shadow: 0px 4px 0px 0px #ffffff; }
+ .wsite-form-input:focus { border-bottom: 0; padding: 12px 12px 13px !important; -webkit-box-shadow: 0px 4px 0px 0px #000000; -moz-box-shadow: 0px 4px 0px 0px #000000; box-shadow: 0px 4px 0px 0px #000000; }
+ .wsite-form-field select, .wsite-com-product-option select, .wsite-com-checkout-section .wsite-form-field select { height: 46px; border: none; -webkit-appearance: none; background: #efefef url(theme/images/dropdown.png?1457340731) no-repeat center right; }
+ .wsite-search-element-input, #wsite-search-query { font-size: 1.15em; font-family: 'Times New Roman', Times, serif; color: #000000; background: #ffffff; padding: 8px 40px 8px 16px !important; border: 1px solid #cccccc; border-radius: 20px !important; }
+ #wsite-search-header { border: none; width: 70%; }
+ #wsite-search-header h2 { font-weight: 900; font-size: 28px; width: auto !important; margin-right: 40px; padding: 6px 0 0; text-align: left; }
+ #wsite-search-form-container { float: left; width: 65%; text-align: left; }
+ #wsite-search-sidebar { float: right !important; width: 20%; text-align: left; }
+ #wsite-search-content:not(.one-column) #wsite-search-results { float: left !important; width: 75% !important; margin-right: 5%; text-align: left; }
+ .wsite-search-facet-entries { display: inline-block; }
+ #wsite-search-product-results .wsite-search-product-result { width: 30%; padding: 0; }
+ #wsite-search-product-results .wsite-search-product-image-container { height: 175px; }
+ #wsite-search-list h3 { font-size: 1.25em !important; text-decoration: none !important; }
+ #wsite-search-list li:not(.wsite-search-product-result) > a { color: #b3b3b3; }
+ .wsite-search-element-input::-webkit-input-placeholder { color: #999999; text-transform: uppercase; font-size: 1em; }
+ .wsite-search-element-input:-moz-placeholder { color: #999999; text-transform: uppercase; font-size: 1em; }
+ .wsite-search-element-input::-moz-placeholder { color: #999999; text-transform: uppercase; font-size: 1em; }
+ .wsite-search-element-input:-ms-input-placeholder { color: #999999; text-transform: uppercase; font-size: 1em; }
+ .wsite-search-element { position: relative; }
+ .wsite-search-element-submit, .wsite-editor .wsite-search-element-submit, #wsite-search-submit { top: 0; right: 8px; width: 36px; height: 36px; background: transparent url(theme/images/search.png?1457340731) no-repeat center center; margin: 0 !important; border: none !important; }
+ .wsite-form-field input[type='checkbox'], .wsite-form-field input[type='radio'], .wsite-com-product-option input[type='checkbox'], .wsite-com-product-option input[type='radio'] { display: none; }
+ .wsite-com-product-option-label span:before, .form-radio-container label:before { content: ''; display: inline-block; width: 22px; height: 22px; margin-right: 5px; vertical-align: middle; }
+ .wsite-com-product-option-label input[type="radio"] + span:before, .form-radio-container input[type="radio"] + label:before { background: transparent url(theme/images/radio.png?1457340731) no-repeat top left; }
+ .wsite-com-product-option-label input[type="checkbox"] + span:before, .form-radio-container input[type="checkbox"] + label:before { background: transparent url(theme/images/checkbox.png?1457340731) no-repeat top left; }
+ .wsite-com-product-option-label input:checked + span:before, .form-radio-container input:checked + label:before { background-position: -22px top; }
+ .form-field-error .wsite-com-product-option-label input[type="radio"] + span:before, .form-field-error .form-radio-container input[type="radio"] + label:before { background-position: -44px top; }
+ .form-radio-container label { font-size: 1.2em; vertical-align: middle !important; }
+ @media (max-width: 767px) {
+ #wsite-search-results, #wsite-search-header { float: none !important; width: 100% !important; margin-right: 0; text-align: left; }
+ #wsite-search-sidebar { display: none; }
+ #wsite-search-content:not(.one-column) #wsite-search-results { float: none !important; width: 100% !important; margin-right: 0; text-align: left; }
+ #wsite-search-product-results .wsite-search-product-result { width: 47%; }
+ #wsite-search-product-results .wsite-search-product-result:nth-child(3n+2), #wsite-search-product-results .wsite-search-product-result:nth-child(3n+1) { padding-right: 0 !important; }
+ #wsite-search-product-results .wsite-search-product-result:nth-child(odd) { padding-right: 6% !important; }
+ }
+ .wsite-button, .blog-button, .wsite-editor .wsite-button { font-family: "Maven Pro", sans-serif; font-weight: 700; font-size: 1.15em !important; display: inline-block; color: #ffffff !important; background: #b3b3b3 !important; padding: .5em .5em .7em !important; line-height: 1 !important; }
+ .wsite-button:hover, .wsite-button:active , .blog-button:hover, .blog-button:active { background: #6a6a6a !important; }
+ .wsite-button-inner { float: none !important; background: none !important; padding: 0 !important; height: auto !important; line-height: 1 !important; font-weight: 700 !important; color: inherit !important; }
+ .wsite-button-inner:before { content: ''; display: inline-block; }
+ .wsite-button-large, .blog-button { font-size: 1.4em !important; padding: .5em .5em .7em !important; }
+ .wsite-button-highlight, .wsite-editor .wsite-button-highlight { background: #3f3f3f !important; }
+ .wsite-button-highlight:hover, .wsite-button-highlight:active { background: #b3b3b3 !important; }
+ .imageGallery * { -webkit-backface-visibility: hidden; -webkit-transform: translate(0, 0); }
+ .galleryInnerImageHolder, .galleryInnerImageHolder a { display: block; height: 100%; width: 100%; top: 0; left: 0; position: absolute; }
+ .partialImageGalleryCaption { top: auto !important; bottom: 0 !important; height: 100%; }
+ .partialImageGalleryCaption .galleryCaptionHolderInner { position: absolute; bottom: 10%; top: auto; }
+ .galleryCaptionHolderInnerBg { opacity: 0; }
+ .imageGallery > div:hover .galleryCaptionHolderInnerBg { opacity: 0.5 !important; }
+ .galleryCaptionInnerTextHolder { padding: 0 10%; z-index: 13; text-transform: uppercase; -webkit-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -moz-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -o-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -ms-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53); transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53); }
+ .galleryInnerImageHolder .galleryCaptionHolderInner { margin-bottom: 0 !important; }
+ .galleryCaptionInnerText { font: 1.25em/1.25 "Maven Pro", sans-serif !important; font-weight: 900 !important; color: #ffffff !important; background: #000000 !important; display: inline !important; padding: .25em 0 !important; box-shadow: -10px 0 0 0 #000000, 10px 0 0 0 #000000 !important; }
+ .fancybox-title { font: 1.25em/1.25 "Maven Pro", sans-serif !important; font-weight: 900 !important; color: #ffffff !important; background: #000000 !important; padding: .25em !important; }
+ .galleryInnerImageHolder img { top: 0; display: block !important; width: 100%; }
+ .galleryImageBorder { padding: 0; border: none !important; }
+ .fancybox-skin { padding: 0 !important; }
+ .#fancybox-thumbs ul li, #fancybox-thumbs ul li.active { border: none !important; }
+ #fancybox-thumbs ul li:hover, #fancybox-thumbs ul li.active { background: #b3b3b3; opacity: .75 !important; }
+ #fancybox-loading, .fancybox-close, .fancybox-prev span, .fancybox-next span { background-image: url(theme/images/fancybox_sprite.png?1457340731); }
+ .fancybox-next{ right: -36px !important; }
+ .fancybox-next span { right: 0 !important; background-position: 0 -104px; }
+ .fancybox-prev { left: -36px !important; }
+ .fancybox-prev span { left: 0 !important; background-position: 0 -50px; }
+ .fancybox-close { top: 0; right: -35px; }
+ @media (max-width: 767px) {
+ .galleryCaptionHolderInner { display: none !important; }
+ .fancybox-prev { left: 0 !important; }
+ .fancybox-next{ right: 0px !important; }
+ .fancybox-close { right: 0; }
+ .halfwidth-mobile { width: 50% !important; }
+ }
+ .wsite-social { white-space: normal; }
+ .wsite-social-item:before, .wsite-social-item:after { top: 0; left: 0; }
+ .wsite-social-item { margin: 0 5px 10px; color: #333333; font-size: 1.75em; }
+ .wsite-social-item:hover { color: #b3b3b3; }
+ #footer { margin: 0 auto; padding: 0; color: #999999; }
+ #footer .paragraph { margin: 0 !important; font-size: 0.9em !important; }
+ .wsite-product { position: relative !important; width: 100% !important; border: none !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; padding: 0 !important; text-align: right; box-sizing: border-box; }
+ .wsite-product.break .wsite-product-right { width: auto !important; max-width: 100% !important; padding: 20px !important; background: #000000 !important; }
+ .wsite-product::before { content: ''; display: inline-block !important; vertical-align: middle !important; padding-top: 61.3026% !important; }
+ .wsite-product.expanded::before { -webkit-transition: all 80ms linear; -moz-transition: all 80ms linear; -o-transition: all 80ms linear; -ms-transition: all 80ms linear; transition: all 80ms linear; }
+ .wsite-product.collapsed::before { -webkit-transition: padding 100ms linear 360ms, min-height 60ms linear 460ms; -moz-transition: padding 100ms linear 360ms, min-height 60ms linear 460ms; -o-transition: padding 100ms linear 360ms, min-height 60ms linear 460ms; -ms-transition: padding 100ms linear 360ms, min-height 60ms linear 460ms; transition: padding 100ms linear 360ms, min-height 60ms linear 460ms; }
+ .wsite-product.collapsed { min-height: 0 !important; }
+ .wsite-product .wsite-product-image-wrap { position: absolute !important; display: block; top: 0; left: 0; width: 100% !important; height: 0 !important; overflow: hidden !important; margin: 0 !important; padding: 61.3026% 0 0 !important; }
+ .wsite-product .wsite-product-image { position: absolute !important; left: 0 !important; top: 0 !important; border: none !important; border-radius: 0 !important; display: block !important; width: 100% !important; }
+ .wsite-product .wsite-product-image-image, .wsite-product-top { width: 100% !important; height: auto !important; top: 0 !important; left: 0 !important; margin: 0 !important; }
+ .wsite-product .wsite-product-right { float: none !important; text-align: left !important; margin: 0 !important; width: 500px !important; max-width: 55% !important; display: inline-block !important; vertical-align: middle !important; color: #ffffff !important; background: rgba(0, 0, 0, .8) !important; padding: 50px; position: relative; box-sizing: border-box; }
+ .wsite-product.collapsed .wsite-product-right { -webkit-transition: all 120ms cubic-bezier(0.55, 0.085, 0.68, 0.53) 360ms; -moz-transition: all 120ms cubic-bezier(0.55, 0.085, 0.68, 0.53) 360ms; -o-transition: all 120ms cubic-bezier(0.55, 0.085, 0.68, 0.53) 360ms; -ms-transition: all 120ms cubic-bezier(0.55, 0.085, 0.68, 0.53) 360ms; transition: all 120ms cubic-bezier(0.55, 0.085, 0.68, 0.53) 360ms; }
+ .wsite-product.expanded .wsite-product-right { -webkit-transition: all 120ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -moz-transition: all 120ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -o-transition: all 120ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -ms-transition: all 120ms cubic-bezier(0.55, 0.085, 0.68, 0.53); transition: all 120ms cubic-bezier(0.55, 0.085, 0.68, 0.53); }
+ .wsite-product:not(.expanded) .wsite-product-right { height: auto !important; }
+ .wsite-product.collapsed .wsite-product-right .wsite-product-description { display: inline-block; overflow: hidden; }
+ .wsite-product.collapsed .wsite-product-right .wsite-product-description { max-height: 0; opacity: 0; -webkit-transition: max-height 100ms linear 200ms, opacity 100ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -moz-transition: max-height 100ms linear 200ms, opacity 100ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -o-transition: max-height 100ms linear 200ms, opacity 100ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -ms-transition: max-height 100ms linear 200ms, opacity 100ms cubic-bezier(0.55, 0.085, 0.68, 0.53); transition: max-height 100ms linear 200ms, opacity 100ms cubic-bezier(0.55, 0.085, 0.68, 0.53); }
+ .wsite-product.expanded .wsite-product-right .wsite-product-description { max-height: 1000px; opacity: 1; -webkit-transition: max-height 100ms linear 200ms, opacity 100ms cubic-bezier(0.55, 0.085, 0.68, 0.53) 360ms; -moz-transition: max-height 100ms linear 200ms, opacity 100ms cubic-bezier(0.55, 0.085, 0.68, 0.53) 360ms; -o-transition: max-height 100ms linear 200ms, opacity 100ms cubic-bezier(0.55, 0.085, 0.68, 0.53) 360ms; -ms-transition: max-height 100ms linear 200ms, opacity 100ms cubic-bezier(0.55, 0.085, 0.68, 0.53) 360ms; transition: max-height 100ms linear 200ms, opacity 100ms cubic-bezier(0.55, 0.085, 0.68, 0.53) 360ms; }
+ .wsite-product .wsite-product-right a { color: #b3b3b3; font-family: "Maven Pro", sans-serif !important; font-weight: 900 !important; text-transform: uppercase !important; }
+ .wsite-product .wsite-product-right .close { display: block; position: absolute; right: 50px; top: 40px; }
+ .wsite-product.collapsed .wsite-product-right .close { display: none; }
+ .wsite-product .wsite-product-right .more { display: none; }
+ @media (min-width: 768px) {
+ .wsite-product.expanded .wsite-product-right { width: 100% !important; max-width: 100% !important; background: rgba(0, 0, 0, 1) !important; }
+ .wsite-product.expanded::before { padding-top: 20% !important; }
+ }
+ .wsite-product .wsite-product-right h2 { margin: 0 auto .5em !important; }
+ .wsite-product .wsite-product-price a { color: #ffffff !important; }
+ .wsite-product .wsite-product-variations .wsite-product-variant, .wsite-product .wsite-product-variations .wsite-product-variant, .wsite-product-price { font-size: 1.15em !important; opacity: 1 !important; margin: 0 !important; }
+ .wsite-product-button-wrap { margin: 10px 0 0 !important; text-align: left; }
+ .wsite-product .wsite-product-description.paragraph { margin: 0 !important; line-height: 1.25 !important; padding-top: 1.5em; }
+ @media (max-width: 767px) {
+ #wsite-com-product-info { margin-left: 0; }
+ .wsite-product .wsite-product-right { width: auto !important; max-width: 100% !important; padding: 20px !important; background: #333333 !important; }
+ .wsite-product.expanded .wsite-product-right { padding: 20px 20px 50px !important; }
+ .wsite-product .wsite-product-right .close { display: block; position: absolute; right: auto; left: 20px; bottom: 20px; top: auto; }
+ }
+ #icontent #commerce_editor_category_editchoices, #icontent #commerce_editor_product_editchoices { margin-top: 20px; }
+ #wsite-com-store .wsite-com-category-subcategory-wrap { margin: 0 !important; }
+ #wsite-com-store .wsite-com-category-subcategory-name { max-width: 100% !important; height: 100% !important; text-align: left !important; padding: 0 50px !important; }
+ #wsite-com-store .wsite-com-category-subcategory-name::before { content: ''; display: inline-block; height: 100%; vertical-align: middle; }
+ #wsite-com-store .wsite-com-category-subcategory-name-bg { opacity: 0 !important; -webkit-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -moz-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -o-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -ms-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53); transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -webkit-backface-visibility: hidden; }
+ #wsite-com-store .wsite-com-category-subcategory-link:hover .wsite-com-category-subcategory-name-bg { opacity: 0.5 !important; }
+ #wsite-com-store .wsite-com-category-subcategory-name-text { display: inline-block; padding: 0.01em 0 .1em; color: #ffffff; text-shadow: none; box-shadow: -.2em 0 0 0 #000000, .2em 0 0 0 #000000 !important; background: #000000 !important; font-size: 2em !important; font-family: "Maven Pro", sans-serif !important; font-weight: 900 !important; text-transform: uppercase !important; text-align: left; vertical-align: middle; max-width: 96%; }
+ .postload #wsite-com-store .wsite-com-category-subcategory-name-text { padding: 0; box-shadow: none !important; background: none !important; font-size: inherit !important; }
+ .postload #wsite-com-store .wsite-com-category-subcategory-name-text > span { display: inline; padding: 0 0 .1em; box-shadow: -.2em 0 0 0 #000000, .2em 0 0 0 #000000 !important; background: #000000 !important; font-size: 1.7em !important; }
+ #wsite-com-store .wsite-com-category-product-featured-wrap, #wsite-com-store .wsite-com-category-product-wrap { font-size: 1.2em; margin: 8px 10px 1.75em; }
+ #wsite-com-store .wsite-com-category-product-link-featured .wsite-com-category-product-featured-image-wrap, #wsite-com-store .wsite-com-category-product-wrap .wsite-com-category-product-image-wrap { background: #000000 !important; }
+ #wsite-com-store .wsite-com-category-product-link-featured .wsite-com-category-product-featured-image-wrap > img, #wsite-com-store .wsite-com-category-product-wrap .wsite-com-category-product-image-wrap > img { -webkit-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -moz-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -o-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -ms-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53); transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -webkit-backface-visibility: hidden; }
+ #wsite-com-store .wsite-com-category-product-link-featured:hover .wsite-com-category-product-featured-image-wrap > img, #wsite-com-store .wsite-com-category-product-wrap:hover .wsite-com-category-product-image-wrap > img { opacity: .6 !important; }
+ #wsite-com-store .wsite-com-category-product-link-featured .wsite-com-category-product-name, #wsite-com-store .wsite-com-category-product-wrap .wsite-com-category-product-name { margin-top: 1em; font-size: 1.2em; font-family: "Maven Pro", sans-serif; font-weight: 900; text-transform: uppercase; line-height: 1; -webkit-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -moz-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -o-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -ms-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53); transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53); }
+ #wsite-com-store .wsite-com-category-product-link-featured:hover .wsite-com-category-product-name, #wsite-com-store .wsite-com-category-product-wrap:hover .wsite-com-category-product-name { color: #b3b3b3 !important; }
+ #wsite-com-store .wsite-com-category-product-name::after { content: '\203A'; vertical-align: top; line-height: 1; font-size: 95%; margin-left: 3px; }
+ #wsite-com-store .wsite-com-category-subcategory-group { margin: 0 -4px !important; }
+ #wsite-com-store .wsite-com-product-price { line-height: 1; padding-top: .5em; }
+ #wsite-com-category-product-group.wsite-com-category-product-featured-group { padding-top: 3em; }
+ @media (max-width: 991px) {
+ #wsite-com-store .wsite-com-category-subcategory-name { padding: 0 25px !important; }
+ .postload #wsite-com-store .wsite-com-category-subcategory-name-text > span { font-size: 1.25em !important; }
+ }
+ @media (max-width: 767px) {
+ .wsite-com-category-subcategory-group .wsite-com-category-subcategory.wsite-com-column, .wsite-com-category-product-featured-group .wsite-com-column.wsite-com-category-product-featured, .wsite-com-category-product-group .wsite-com-column.wsite-com-category-product { width: 50% !important; }
+ #wsite-com-store #wsite-com-hierarchy ul { font-size: inherit !important; }
+ #wsite-com-store .wsite-com-category-subcategory-name { max-width: 100% !important; height: 100% !important; text-align: left !important; padding: 0 5px !important; }
+ #wsite-com-store .wsite-com-category-subcategory-name-text { font-size: 1.15em !important; }
+ #wsite-com-store .wsite-com-category-product-featured-wrap, #wsite-com-store .wsite-com-category-product-wrap, #wsite-com-store .wsite-com-category-product-link-featured .wsite-com-category-product-name, #wsite-com-store .wsite-com-category-product-wrap .wsite-com-category-product-name { font-size: .95em !important; }
+ }
+ #wsite-com-breadcrumbs { font-family: "Maven Pro", sans-serif; font-weight: 900; font-size: 15px; text-transform: uppercase; line-height: 1; padding: 0 0 2em !important; margin: 0 -4px !important; }
+ #wsite-com-breadcrumbs .wsite-com-breadcrumb a { color: #b3b3b3; }
+ #wsite-com-breadcrumbs .wsite-com-breadcrumb:last-child a { color: #000000; }
+ .wsite-com-breadcrumb-arrow { display: none !important; }
+ .wsite-com-breadcrumb .wsite-com-breadcrumb-arrow::after { display: none; }
+ .wsite-com-breadcrumb:nth-child(even)::before { content: '\203A'; vertical-align: top; line-height: 1; font-size: 95%; margin: 0 5px; }
+ #wsite-com-store #wsite-com-featured-title, #wsite-com-product-list #wsite-com-title { display: none !important; }
+ #wsite-com-store .wsite-com-sidebar { width: 100%; float: none !important; padding: 5px 0 0 !important; text-align: center; position: relative; z-index: 10; margin: 0 auto 15px; cursor: pointer; min-height: 35px; }
+ #wsite-com-store .wsite-com-sidebar::after { display: inline-block; content: 'VIEW ALL CATEGORIES \25be'; padding: 0; text-align: center; font-family: "Maven Pro", sans-serif; font-weight: 900 !important; line-height: 2; text-transform: uppercase; color: #b3b3b3; clear: both; -webkit-transition: all 120ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -moz-transition: all 120ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -o-transition: all 120ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -ms-transition: all 120ms cubic-bezier(0.55, 0.085, 0.68, 0.53); transition: all 120ms cubic-bezier(0.55, 0.085, 0.68, 0.53); }
+ .postload #wsite-com-store .wsite-com-sidebar:hover::after { padding: 4px 0 0; }
+ #wsite-com-store .sidebar-expanded::after { display: none; }
+ #wsite-com-store .sidebar-expanded { cursor: default !important; }
+ #wsite-com-store .wsite-com-content-with-sidebar { margin-left: 0 !important; padding: 0 !important; }
+ #wsite-com-store .wsite-com-sidebar #wsite-com-hierarchy ul { margin: 0 !important; }
+ #wsite-com-store .wsite-com-sidebar #wsite-com-hierarchy > ul { top: 0; left: 0; width: 100%; padding: 6em 0 !important; background: rgba(180, 180, 180, .95); }
+ #wsite-com-store .wsite-com-sidebar #wsite-com-hierarchy { position: absolute; width: 100%; max-height: 2px; overflow: hidden; margin: 0 auto .25em; display: block; border-bottom: 4px solid #ffffff; -webkit-transition: border-color 120ms cubic-bezier(0.55, 0.085, 0.68, 0.53), max-height 350ms cubic-bezier(0.445, 0.05, 0.55, 0.95); -moz-transition: border-color 120ms cubic-bezier(0.55, 0.085, 0.68, 0.53), max-height 350ms cubic-bezier(0.445, 0.05, 0.55, 0.95); -o-transition: border-color 120ms cubic-bezier(0.55, 0.085, 0.68, 0.53), max-height 350ms cubic-bezier(0.445, 0.05, 0.55, 0.95); -ms-transition: border-color 120ms cubic-bezier(0.55, 0.085, 0.68, 0.53), max-height 350ms cubic-bezier(0.445, 0.05, 0.55, 0.95); transition: border-color 120ms cubic-bezier(0.55, 0.085, 0.68, 0.53), max-height 350ms cubic-bezier(0.445, 0.05, 0.55, 0.95); }
+ #wsite-com-store .wsite-com-sidebar:hover #wsite-com-hierarchy { max-height: 2000px; }
+ .postload #wsite-com-store .wsite-com-sidebar:hover #wsite-com-hierarchy, .sidebar-expanded #wsite-com-hierarchy { max-height: 2px; border-color: rgba(180, 180, 180, .95) !important; }
+ #wsite-com-store .sidebar-expanded #wsite-com-hierarchy { max-height: 2000px !important; }
+ #wsite-com-store #close { position: absolute; z-index: 12; width: 100%; top: 20px; text-align: center; font-family: "Maven Pro", sans-serif; font-weight: 900 !important; text-transform: uppercase; color: #ffffff; display: block; }
+ #wsite-com-store .wsite-com-sidebar #wsite-com-hierarchy a, #wsite-com-store .wsite-com-sidebar #wsite-com-hierarchy { color: #ffffff; }
+ #wsite-com-store #wsite-com-hierarchy a .wsite-com-link-text { line-height: 1.3 !important; font-size: 1.15em !important; display: inline-block !important; }
+ #wsite-com-store #wsite-com-hierarchy a .wsite-level-1 { font-family: "Maven Pro", sans-serif; font-weight: 900 !important; text-transform: uppercase; border-bottom: 2px solid transparent; }
+ #wsite-com-store #wsite-com-hierarchy a:hover .wsite-level-1 { border-bottom: 2px solid #ffffff; }
+ #wsite-com-store #wsite-com-hierarchy .wsite-level-1 > ul { margin-bottom: 1em !important; }
+ #wsite-com-store #wsite-com-hierarchy a .wsite-level-2 { border-bottom: 1px solid transparent; margin-bottom: .25em !important; }
+ #wsite-com-store #wsite-com-hierarchy a:hover .wsite-level-2 { border-bottom: 1px solid #ffffff; }
+ #wsite-com-store #wsite-com-hierarchy .wsite-selected > a, #wsite-com-store #wsite-com-hierarchy .wsite-selected > a:hover { color: #6a6a6a; cursor: default; }
+ #wsite-com-store #wsite-com-hierarchy .wsite-selected > a:hover > div { border-color: transparent; }
+ @media (max-width: 767px){
+ #wsite-com-store .wsite-com-sidebar #wsite-com-hierarchy { position: absolute; width: 100%; max-height: 0px; }
+ #wsite-com-store .wsite-com-sidebar { margin: 0 !important; }
+ .postload #wsite-com-store .wsite-com-sidebar:hover #wsite-com-hierarchy { border-color: transparent; max-height: 0px; }
+ .postload #wsite-com-store .wsite-com-sidebar:hover::after { padding: 0; }
+ #wsite-com-store .wsite-com-sidebar #wsite-com-hierarchy > ul { padding: 4em 0 2em!important; }
+ #wsite-com-store #close { top: 10px; }
+ }
+ .wsite-com-category-product-image-wrap, .wsite-com-category-product-featured-image-wrap, .wsite-com-category-subcategory-image-wrap { border: none !important; }
+ #wsite-com-product-images { vertical-align: top; }
+ #cloudzoom-wrap { padding: 0 0 10px !important; }
+ #wsite-com-product-images-strip, #wsite-com-product-images-strip a { margin: 0 !important; }
+ #wsite-com-product-images-strip a { width: 33.333333% !important; padding: 0 !important; border: none !important; box-shadow: none !important; margin: 0 !important; }
+ .wsite-com-product-images-secondary-outer { padding: 0 !important; border: none !important; box-shadow: none !important; margin: 0 !important; }
+ .wsite-imageaspectratio-image-wrap, #wsite-com-product-images-strip a:hover .wsite-imageaspectratio-image-wrap, #wsite-com-product-images-strip a:focus .wsite-imageaspectratio-image-wrap { background: #000000 !important; }
+ #wsite-com-product-images-strip a img, #wsite-com-product-images-strip a img { opacity: 0.5; -webkit-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -moz-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -o-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -ms-transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53); transition: all 200ms cubic-bezier(0.55, 0.085, 0.68, 0.53); -webkit-backface-visibility: hidden; -webkit-transform: translateX(0); }
+ #wsite-com-product-images-strip a:hover img, #wsite-com-product-images-strip a:focus img { opacity: 0.8 !important; }
+ .current-thumb img, .current-thumb:hover img { opacity: 1 !important; }
+ #wsite-com-product-info-inner { max-width: 450px; }
+ h2#wsite-com-product-title { font-size: 1.5em; font-weight: bold; margin: 0 auto 1em; }
+ #wsite-com-product-sku { display: block; float: right; font-size: 1.1em !important; line-height: 1 !important; opacity: 1 !important; margin: 0 auto 1em; }
+ #wsite-com-product-sku > b, #wsite-com-product-sku > span { font-weight: normal !important; }
+ #wsite-com-product-price-area { font-size: 1.1em; padding: 0; margin: 0 auto 1em; border: none !important; line-height: 1; }
+ #wsite-com-product-inventory, .wsite-com-product-option { padding-top: 2em; margin-top: 0; }
+ #wsite-com-product-inventory, #wsite-com-product-options { font-family: "Maven Pro", sans-serif; border: none !important; }
+ #wsite-com-product-options, #wsite-com-product-quantity, .wsite-com-product-label { position: relative; margin: 0 0 6px !important; }
+ .postload #wsite-com-product-quantity b { position: absolute; top: .9em; left: 1em; z-index: 2; }
+ #wsite-com-product-quantity-input { font-family: "Maven Pro", sans-serif; padding-left: 50px !important; border: 1px solid #cccccc !important; -webkit-box-shadow: none !important; -moz-box-shadow: none !important; box-shadow: none !important; }
+ #wsite-com-product-quantity-input:focus { padding: 12px 12px 12px 50px !important; }
+ .wsite-com-product-option-color .wsite-com-product-option-color-swatch { width: 50px; height: 50px; border-radius: 0; box-shadow: none !important; outline: none !important; }
+ .wsite-com-product-option-color .wsite-com-product-option-color-container { margin: 0 6px 0 0 !important; box-shadow: none !important; }
+ .wsite-com-product-option-color .wsite-selected { background-image: url(theme/images/store-check.png?1457340731) !important; }
+ #wsite-com-product-short-description .paragraph { margin: 0 0 1.25em !important; }
+ #wsite-com-product-social-sharing a { height: 27px; }
+ #wsite-com-product-buy { padding-top: 2.5em; margin-top: 0; }
+ @media (max-width: 767px) {
+ #wsite-com-product-area { display: block !important; }
+ #wsite-com-product-images, #wsite-com-product-info, #wsite-com-product-info { display: block !important; width: 100% !important; padding: 0 !important; clear: both !important; }
+ #wsite-com-product-images-strip a { width: 25% !important; }
+ #wsite-com-product-info-inner { padding-top: 2.5em; }
+ .wsite-com-product-option-groups select { width: 75% !important; }
+ .postload #wsite-com-store .wsite-com-category-subcategory-name-text > span { font-size: .85em !important; }
+ #wsite-com-breadcrumbs { margin: 0 !important; font-size: 12px; }
+ .wsite-com-breadcrumb:nth-child(even):::before { margin: 0 3px !important; }
+ #wsite-com-product-social-sharing { display: none; }
+ .wsite-com-product-option-groups > div:first-child { padding-top: 0; }
+ }
+ .blog-sidebar { width: 250px; }
+ .wsite-blog-index .blog-post-separator, .blog-postlist .blog-post-separator { display: none !important; }
+ .wsite-blog-index #wsite-content > .blog-post { float: left; width: 100%; display: block; padding-top: 3.5em; border-top: 1px solid #cccccc; }
+ .wsite-blog-index #wsite-content .blog-post:first-child { border-top: none !important; padding-top: 0; }
+ .blog-post .blog-header h2.blog-title { margin: 0 0 1em !important; line-height: 1.3 !important; }
+ .blog-title a { display: inline !important; color: #000000; font-size: 1.25em; line-height: 1 !important; text-transform: uppercase; }
+ .blog-post p.blog-date, .blog-post p.blog-comments { font-size: 1em !important; margin: 0 0 1em !important; font-family: "Maven Pro", sans-serif !important; font-weight: 900 !important; text-transform: uppercase !important; }
+ .date-text { float: none !important; }
+ .blog-comments a { color: #b3b3b3; }
+ .blog-post .blog-separator { height: 0 !important; margin: 0 !important; padding: 0 !important; border: none !important; }
+ .blog-post .blog-read-more, .blog-post .blog-social { text-align: left !important; }
+ .blog-content, #content .blog-post .blog-content { text-align: left; }
+ .blog-content > br { display: none !important; }
+ .blog-read-more a.blog-link { font-size: 1em !important; font-family: "Maven Pro", sans-serif !important; font-weight: 900 !important; text-transform: uppercase !important; }
+ .wsite-blog-index .blog-comments-bottom { display: none !important; }
+ .wsite-blog-post .blog-post { margin: 0 !important; }
+ @media (max-width: 991px) {
+ #blogTable > tbody > tr > td { display: block !important; width: 100% !important; margin: 0 auto; padding: 0 !important; clear: both; }
+ .blog-body { float: none !important; }
+ .blog-sidebar .column-blog { width: 100%; float: none; padding-top: 2em; }
+ }
+ @media (max-width: 767px) {
+ .blog-post .blog-header h2.blog-title { line-height: 1.1 !important; }
+ .blog-post .blog-header h2.blog-title a { font-size: 1em !important; }
+ .blog-social { display: none; }
+ .wsite-blog-index .blog-post { padding-bottom: 0; }
+ }
+ #commentAreaTitle { display: inline-block; font-size: 1.8em !important; background: #000000; color: #ffffff; padding: .15em .5em .25em; font-family: "Maven Pro", sans-serif !important; font-weight: 900 !important; line-height: 1 !important; text-transform: uppercase; }
+ .blogCommentWrap, .blogCommentHeading, .blogCommentHeading .blogCommentHeadingInner, .blogCommentHeading .blogCommentAuthor, .blog-button span { background: none !important; }
+ .blogCommentWrap { position: relative !important; }
+ .blogCommentLevel0 { padding-top: 2.5em; margin-top: 3.25em; border-top: 1px solid #cccccc; }
+ .blogCommentLevel0.first { padding-top: 0; margin-top: 0; border: none !important; }
+ .blogCommentHeading .blogCommentAuthor a.link { text-indent: -9999px; background: url(theme/images/menu-arrow-dark.png?1457340731); width: 4px !important; height: 8px !important; margin: 8px 0 0 5px !important; }
+ .blogCommentHeading, .blogCommentHeading .blogCommentAuthor { padding: 0 !important; }
+ .blogCommentAuthor, .blogCommentDate, .blogCommentHeading .blogCommentAuthor .name, .blogCommentHeadingInner{ font-family: "Maven Pro", sans-serif !important; font-weight: 900 !important; line-height: 1 !important; height: auto !important; text-transform: uppercase; }
+ .blogCommentAuthor { font-size: 1.5em !important; margin: 0 0 .75em !important; }
+ .blogCommentHeading .blogCommentDate { display: block; text-align: left !important; font-size: 1em !important; float: none !important; clear: both; margin: 0 0 1.5em !important; }
+ .blogCommentText { padding: 0 !important; }
+ .blog-button span { float: none !important; padding: 0 !important; margin: 0 !important; }
+ .blogCommentText div.paragraph, #secondlist .blogCommentText div.paragraph { font-family: inherit !important; margin: 0 auto 1.5em !important; font-size: 1.15em; line-height: 1.7em; }
+ .blogCommentText p, #secondlist .blogCommentText p { font-family: inherit !important; margin: 0 auto 1.5em !important; font-size: 1.15em; line-height: 1.7em; }
+ .blogCommentOptions .blog-button { height: auto !important; margin: 0 !important; float: left !important; }
+ .blogCommentLevel1 { padding: 2em; background: #f6f6f6 !important; margin: 1.5em 0 1px 0; }
+ .blogCommentLevel2 { padding: 2em 2em 0; background: #eaeaea !important; margin: 0 0 1px 4em; }
+ .blogCommentLevel1.first { margin-top: 3em !important; }
+ .blogCommentLevel2.first { margin-top: 1.5em !important; }
+ .blogCommentLevel1.first .blogCommentHeading::before { position: absolute; top: -30px; left: 1.8em; margin-left: -20px; color: #f6f6f6; font-size: 36px; content: '\25B2'; z-index: 11; -ms-transform: scale(3,1); -webkit-transform: scale(3,1); transform: scale(3,1); font-family: arial !important; }
+ .blogCommentLevel2.first .blogCommentHeading::before { position: absolute; top: -40px; left: 1.8em; margin-left: -20px; color: #eaeaea; font-size: 36px; content: '\25B2'; z-index: 11; -ms-transform: scale(3,1); -webkit-transform: scale(3,1); transform: scale(3,1); }
+ .blogCommentSubreplyWrapper div.iframeWrapper { background: none !important; border: none !important; }
+ #commentPostDiv { margin: 0 !important; }
+ .blogCommentReplyWrapper, .blogCommentReplyWrapper iframe { height: 660px !important; }
+ #commentPostDiv .commentInput, #commentPostDiv .commentTextarea { padding: 0 !important; }
+ #commentPostDiv .field input[type=text], #commentPostDiv .field textarea { margin: 0 !important; line-height: 1 !important; height: auto; }
+ #commentPostDiv .commentInput > input, .commentTextarea > textarea { font-size: 1.15em !important; font-family: 'Times New Roman', Times, serif !important; color: #333333 !important; background: #ffffff !important; padding: 12px !important; border-radius: 0 !important; border: 1px solid #cccccc !important; -webkit-box-shadow: 0px 4px 0px 0px #ffffff !important; -moz-box-shadow: 0px 4px 0px 0px #ffffff !important; box-shadow: 0px 4px 0px 0px #ffffff !important; }
+ .commentTextarea > textarea { width: 125% !important; height: 150px !important; }
+ #commentPostDiv .commentInput > input:focus, .commentTextarea > textarea:focus { border-bottom: 0 !important; padding: 12px 12px 13px !important; -webkit-box-shadow: 0px 4px 0px 0px #000000 !important; -moz-box-shadow: 0px 4px 0px 0px #000000 !important; box-shadow: 0px 4px 0px 0px #000000 !important; }
+ #commentPostDiv .field label { padding: 0 !important; }
+ .field-notify label { font-size: .9em !important; font-weight: 700 !important; }
+ @media (max-width: 767px) {
+ #commentPostDiv .field input[type=text], #commentPostDiv .field textarea { width: 85% !important; }
+ .blogCommentLevel2 { margin-left: 2em; }
+ .blogCommentLevel1.first .blogCommentHeading::before, .blogCommentLevel2.first .blogCommentHeading::before { top: -24px; margin-left: 0px; font-size: 24px; }
+ #commentSubmit, #commentCancel { float: left !important; }
+ #commentUserInfo { float: right !important; width: 170px; }
+ }
+ .wsite-com-continue-shopping { font-family: "Maven Pro", sans-serif; text-transform: uppercase; font-weight: 900; }
+ .wsite-com-checkout-item-heading { font-family: "Maven Pro", sans-serif; font-weight: 900 !important; line-height: 1 !important; text-transform: uppercase; }
+ .wsite-com-continue-shopping .caret { vertical-align: baseline; }
+ .wsite-checkout-button .wsite-button-inner { font-weight: 500 !important; letter-spacing: 1px !important; }
+ h2.wsite-checkout-header { padding-bottom: 0 !important; }
+ @media (max-width: 991px) {
+ .postload:not(.splash-page) #wrapper { height: auto !important; min-height: 100%; overflow: hidden; }
+ .postload.splash-page #wrapper { overflow-x: hidden; }
+ #wsite-mini-cart { width: 100% !important; margin: 0 !important; top: auto !important; bottom: 0 !important; left: 0 !important; right: 0 !important; border-radius: 0 !important; display: none !important; position: fixed !important; }
+ #wsite-mini-cart.full { display: block !important; }
+ #wsite-mini-cart:after { display: none !important; }
+ #wsite-mini-cart:before { font-family: "Maven Pro", sans-serif; font-weight: 900 !important; content: 'SHOPPING CART' !important; width: 200px !important; left: 15px !important; top: 10px !important; margin: 0 !important; border: none !important; background: #000000 !important; }
+ #wsite-mini-cart .wsite-product-list { display: none !important; }
+ .wsite-subtotal-wrapper { padding-top: 20px !important; }
+ #wsite-com-checkout-list .wsite-com-checkout-item-details-inner, #wsite-com-checkout-summary-list .wsite-com-checkout-item-details-inner { line-height: 1 !important; }
+ }
+ @media (max-width: 767px) {
+ #wsite-com-checkout thead { display: none; }
+ #wsite-com-checkout-list .wsite-com-checkout-item-image, #wsite-com-checkout-summary-list .wsite-com-checkout-item-image { max-width: 50px; max-height: 50px; margin-right: 10px; }
+ #wsite-com-checkout-list .wsite-com-checkout-item-details-inner, #wsite-com-checkout-summary-list .wsite-com-checkout-item-details-inner { padding-left: 0 !important; }
+ #wsite-com-checkout-list .wsite-com-checkout-item-heading a, #wsite-com-checkout-summary-list .wsite-com-checkout-item-heading a, .wsite-com-checkout-item-variations, .wsite-com-continue-shopping, button.wsite-button.wsite-button-large.wsite-button-highlight.wsite-checkout-button.wsite-com-paypal-checkout-button { font-size: .75em !important; }
+ #wsite-com-checkout-list .wsite-form-input:not(.wsite-coupon-input), #wsite-com-checkout-summary-list .wsite-form-input:not(.wsite-coupon-input) { width: 20px !important; margin: 0 10px !important; padding: 5px !important; }
+ #wsite-com-checkout-list .wsite-coupon-input, #wsite-com-checkout-summary-list .wsite-coupon-input { width: 90px; }
+ #wsite-com-checkout-list .wsite-remove-button, #wsite-com-checkout-summary-list .wsite-remove-button { left: 10px !important; top: 10px !important; }
+ .wsite-checkout-type .wsite-paypal { margin-left: 0; margin-top: 10px; }
+ #wsite-com-checkout-payment > div { width: 100%; }
+ #wsite-com-checkout-payment-order { margin: 0; padding: 15px; }
+ }
+
+div.paragraph ul, div.paragraph ol { padding-left: 3em !important; margin: 5px 0 !important; overflow:hidden; }
+div.paragraph li { padding-left: 5px !important; margin: 3px 0 0 !important; }
+div.paragraph ul, div.paragraph ul li { list-style: disc outside !important; }
+div.paragraph ol, div.paragraph ol li { list-style: decimal outside !important; }

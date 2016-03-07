@@ -1,0 +1,13 @@
+ {
+	"responsive": true,
+	"tmpSocialIconFont": true,
+	"description": "Squared is a bold, image-first theme. With layouts designed to showcase your photo and styling that features some extra design polish, Squared really stands out. Special eCommerce design features give your products a beautiful home and extra space for a dramatic storefront. Squared is the  perfect theme for any creative looking to make an impression.",
+	"enableEditorJS": true,
+	"features": [
+		"responsive",
+		"css-buttons",
+		"social-icons",
+		"navigation-side",
+		"color-palettes"
+	]
+}
