@@ -1,0 +1,9 @@
+main: takes no arguments,returns nothing
+Call Init
+Loop forever
+	Update the SPI state machine
+	Update the strategy state machine
+
+Init: takes no arguments, returns nothing
+Initialize the gameInfo struct to initial values
+Initialize timers12, lift motor, drive motors, ultrasonic, beacons, SPI state machine, and strategy state machine

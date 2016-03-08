@@ -1,0 +1,107 @@
+InitSPI: takes no arguments, returns nothing
+Set E128 as master
+Set to send/receive most significant bit first
+SPPR = 7
+SPR = 2, so divisor = (1+7)*2^(2+1) = 64 (24 Mhz / 64 = 375 KHz)
+Polarity: Active Low, sample even edges (mode 3)
+Enable slave select output
+Enable hardware automatically lowers/raises SS
+Enable SPI
+Initialize sendQueue entries to QUERY_GAME
+Set currSendIndex to 0
+Set the current requestedCommand to WAITING_FOR_NEW_COMMAND
+Start SPI_TIMER to exire in NEW_COMMAND_TIME
+Load in the gameInfo struct
+
+AddNewCommand: takes command, returns nothing
+Save command as current requestedCommand
+If the currSendIndex < SEND_QUEUE_SIZE - 2
+	Save the next entry in sendQueue as command
+Else save the zeroth entry in sendQueue as command
+
+UpdateSPI: takes no arguments, returns nothing
+Switch on the currState
+	case WAITING_FOR_NEW_COMMAND	
+		If NEW_COMMAND_TIMER expires and it is OK to transmit
+			Clear expired timer
+			Load in new command from sendQueue
+			Set nextState to SENDING_COMMAND
+			Start SEND_COMMAND_TIME
+		Else
+			nextState = WAITING_FOR_NEW_COMMAND
+	case SENDING_COMMAND
+		If SEND_COMMAND_TIME expires and data was transferred to SPIDR
+			Clear expired timer
+			Read SPIDR to begin transmission
+			Set nextState to SENDING_COMMAND
+			Start SEND_JUNK_TIME
+		Else
+			nextState = SENDING_COMMAND
+	case SENDING_JUNK
+		If SEND_JUNK_TIME expires and it is OK to transmit
+			Clear expired timer
+			Write JUNK_COMMAND to SPIDR
+			Set nextState to RECEIVING_RESPONSE
+			Start RECEIVE_RESP_TIME
+		Else
+			nextState = SENDING_JUNK
+	case RECEIVING_RESPONSE
+		If RECEIVE_RESP_TIME expires and data was transferred to SPIDR
+			Clear expired timer
+			Record response from SPIDR
+			HandleSPIResponse
+			Replace last sendQueue command with default (QUERY_GAME)
+			Update currSenxIndex to move over to the next command in sendQueue
+			Set nextState to WAITING_FOR_NEW_COMMAND
+			Start SPI_TIMER to expire in NEW_COM_TIME
+		Else
+			nextState = RECEIVING_RESPONSE
+	Update currState to nextState
+
+HandleSPIResponse: takes response from SPI after command sent, returns nothing
+Set the nextSendIndex without overwriting the QUERY_GAME slot
+switch on current command in the sendQueue
+	case QUERY_STATE
+		switch on response
+			case Request succeeded
+				If the requestedCommand was 2 pt hoop size
+					Print success message
+				Else if the requestedCommand was 3 pt hoop size
+					Print success message
+				Else a ball was dispensed, so update ballDispensed to true
+			case Request pending
+				Set the next slot in the sendQueue to QUERY_STATE
+			case Request failed
+				Set the next slot in the sendQueue to the requestedCommand
+	
+	
+	case QUERY_GAME
+		switch response
+			case GAME RUNNING
+				Update currGameCondition
+			case GAME PAUSED
+				Update currGameCondition
+			case GAME OVER RED WON
+				Update currGameCondition
+			case GAME OVER GREEN WON
+				Update currGameCondition
+	default (We just requested Hoop2, Hoop3, Ball Dispension, or Ball Query)
+		Switch on response
+			case REQUEST_PENDING
+				The requested command forwarded, so set next slot in sendQueue to QUERY_STATE
+			case REQUEST_FAILED (shouldn't happen)
+				Set next slot in sendQueue to the requestedCommand
+			case QUERY_DISPENSE_PENDING (either +0,4,8,12)
+				Set next slot in sendQueue to the requestedCommand (query number of balls again)
+			case DISPENSE_NUMBER+0(+ either 0,1,2,3)
+				Set number of availableBalls[0]  = response mod4
+				Set queryComplete to 1
+			case DISPENSE_NUMBER+4(+ either 0,1,2,3)
+				Set number of availableBalls[1]  = response mod4
+				Set queryComplete to 1
+			case DISPENSE_NUMBER+8(+ either 0,1,2,3)
+				Set number of availableBalls[2]  = response mod4
+				Set queryComplete to 1
+			case DISPENSE_NUMBER+12(+ either 0,1,2,3)
+				Set number of availableBalls[3]  = response mod4
+				Set queryComplete to 1

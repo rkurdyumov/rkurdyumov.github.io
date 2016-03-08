@@ -1,0 +1,64 @@
+Region buttons module
+
+SelectLO: takes no arguments, returns nothing
+	set select line LO
+
+SelectHI: takes no arguments, returns nothing
+	set select line HI
+
+InitializeButtons: takes no arguments, returns nothing
+	SelectLO
+	set L1, L3, R1, R3 buttons to not pressed
+	record last LO time
+	SelectHI
+	L2, L4, R2, R4 buttons to not pressed
+	record last HI time
+	SelectLO
+	next sample state = LO
+
+CheckButtonState: takes button index (0-7), returns	button state
+	local variable return state
+	if button index 0 or 1
+		check if bit 5 HI, set value to return state
+	if button index 2 or 3
+		check if bit 4 HI, set value to return state
+	if button index 4 or 5
+		check if bit 3 HI, set value to return state
+	if button index 6 or 7
+		check if bit 2 HI, set value to return state
+	if return state is nonzero
+		return state == OFF (button not pressed)
+	else
+		return state = ON (button pressed)
+	return return state
+
+CheckButtonPress: takes no arguments, returns which button pressed (0-7)	
+	local variables: current LO time, current HI time, button states = OFF, 
+	return event = 0, current sample state = next sample state
+	if current sample state is HI
+		update current HI time
+		if a debounce interval has expired
+			update current button states
+			if a button has been pressed down
+				return event = which button changed
+				update the last button state
+			if a button has been released
+				update the last button state
+			update the last HI time
+	if current sample state is LO
+		update current LO time
+		if a debounce interval has expired
+			update current button states
+			if a button has been pressed down
+				return event = which button changed
+				update the last button state
+			if a button has been released
+				update the last button state
+			update the last LO time
+	if current sample state is HI
+		next sample state = LO
+		SelectLO
+	if current sample state is LO
+		next sample state = HI
+		SelectHI
+	return return event

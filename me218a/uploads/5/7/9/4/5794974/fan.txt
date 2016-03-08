@@ -1,0 +1,12 @@
+Fan module
+
+StartFan: takes input fan(s), returns nothing
+	if left fan, turn on left fan
+	if right fan, turn on right fan
+	if both fans, turn on both fans
+	
+StopFan: takes input fan(s), returns nothing
+	if left fan, turn off left fan
+	if right fan, turn off right fan
+	if both fans, turn off both fans
+  

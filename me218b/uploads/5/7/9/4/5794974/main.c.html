@@ -1,0 +1,434 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<title>main.c</title>
+<link rel="stylesheet" type="text/css" href="highlight.css">
+</head>
+<body class="hl">
+<pre class="hl"><span class="hl slc">//#define MAIN_TEST</span>
+<span class="hl slc">//#define BEACON_TEST</span>
+<span class="hl slc">//#define CAGE_SERVO_TEST</span>
+<span class="hl slc">//#define DRIVE_MOTOR_TEST</span>
+<span class="hl slc">//#define LIFT_MOTOR_TEST</span>
+<span class="hl slc">//#define SPI_TEST</span>
+<span class="hl slc">//#define DUNKABASKET</span>
+<span class="hl slc">//#define ULTRASONIC_TEST</span>
+<span class="hl dir">#define TOTAL_TEST</span>
+<span class="hl slc">//#define HALF_COURT</span>
+<span class="hl slc">//#define TIMER_TEST</span>
+
+<span class="hl com">/**************************************************************************</span>
+<span class="hl com"></span>
+<span class="hl com">Main Module</span>
+<span class="hl com"></span>
+<span class="hl com">**************************************************************************/</span>
+
+<span class="hl com">/*---------------------------- Include Files ----------------------------*/</span>
+
+<span class="hl dir">#include &lt;hidef.h&gt;</span>
+<span class="hl dir">#include &lt;stdio.h&gt;</span>
+<span class="hl dir">#include &lt;mc9s12e128.h&gt;</span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;ME218_E128.h&quot;</span><span class="hl dir"></span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;S12eVec.h&quot;</span><span class="hl dir"></span>
+<span class="hl dir">#include &lt;timers12.h&gt;</span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;PWM.h&quot;</span><span class="hl dir"></span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;ADS12.h&quot;</span><span class="hl dir"></span>
+
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;game.h&quot;</span><span class="hl dir"></span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;beacon.h&quot;</span><span class="hl dir"></span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;drive_motor.h&quot;</span><span class="hl dir"></span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;lift_motor.h&quot;</span><span class="hl dir"></span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;SPI.h&quot;</span><span class="hl dir"></span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;strategy.h&quot;</span><span class="hl dir"></span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;ultrasonic.h&quot;</span><span class="hl dir"></span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;switch.h&quot;</span><span class="hl dir"></span>
+
+<span class="hl com">/*--------------------------- Module Defines ----------------------------*/</span>
+<span class="hl com">/*---------------------------- Module Types -----------------------------*/</span>
+<span class="hl com">/*-------------------------- Module Variables ---------------------------*/</span>
+<span class="hl kwb">static</span> game_info_s gameInfo<span class="hl sym">;</span>
+<span class="hl com">/*-------------------------- Module Functions ---------------------------*/</span>
+<span class="hl com">/*----------------------------- Module Code -----------------------------*/</span>
+
+
+<span class="hl dir">#ifdef BEACON_TEST</span>
+<span class="hl kwb">void</span> <span class="hl kwd">main</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">) {</span>
+
+	<span class="hl kwd">InitializeBeacons</span><span class="hl sym">();</span>
+
+	<span class="hl kwa">while</span><span class="hl sym">(</span><span class="hl num">1</span><span class="hl sym">) {</span>
+			<span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">)</span><span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;lBeacon: %d cHiPer: %d</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">,</span> <span class="hl kwd">CheckBeaconDetected</span><span class="hl sym">(</span>LEFT<span class="hl sym">),</span> <span class="hl kwd">ReturnHighTime</span><span class="hl sym">(</span>LEFT<span class="hl sym">));</span>
+			<span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">)</span><span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;rBeacon: %d cHiPer: %d</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">,</span> <span class="hl kwd">CheckBeaconDetected</span><span class="hl sym">(</span>RIGHT<span class="hl sym">),</span> <span class="hl kwd">ReturnHighTime</span><span class="hl sym">(</span>RIGHT<span class="hl sym">));</span>
+	<span class="hl sym">}</span>
+<span class="hl sym">}</span>
+<span class="hl dir">#endif</span> <span class="hl slc">// BEACON_TEST</span>
+<span class="hl dir"></span>
+
+<span class="hl dir">#ifdef CAGE_SERVO_TEST</span>
+<span class="hl kwb">void</span> <span class="hl kwd">main</span><span class="hl sym">() {</span>
+	<span class="hl kwb">char</span> press<span class="hl sym">;</span>
+	<span class="hl kwd">InitCageServos</span><span class="hl sym">();</span>
+
+	<span class="hl kwa">while</span><span class="hl sym">(</span><span class="hl num">1</span><span class="hl sym">) {</span>
+		<span class="hl kwa">if</span><span class="hl sym">(</span><span class="hl kwd">kbhit</span><span class="hl sym">() ==</span> <span class="hl num">1</span><span class="hl sym">) {</span>
+			press <span class="hl sym">= (</span><span class="hl kwb">char</span><span class="hl sym">)</span><span class="hl kwd">getchar</span><span class="hl sym">();</span>
+			<span class="hl kwa">switch</span><span class="hl sym">(</span>press<span class="hl sym">) {</span>
+				<span class="hl kwa">case</span> <span class="hl str">'o'</span><span class="hl sym">:</span> <span class="hl kwd">OpenCage</span><span class="hl sym">();</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+				<span class="hl kwa">case</span> <span class="hl str">'c'</span><span class="hl sym">:</span> <span class="hl kwd">CloseCage</span><span class="hl sym">();</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+		<span class="hl sym">}</span>
+	<span class="hl sym">}</span>
+<span class="hl sym">}</span>
+<span class="hl dir">#endif</span> <span class="hl slc">// CAGE_SERVO_TEST</span>
+<span class="hl dir"></span>
+
+<span class="hl dir">#ifdef DRIVE_MOTOR_TEST</span>
+<span class="hl kwb">void</span> <span class="hl kwd">main</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">) {</span>
+
+	<span class="hl kwb">char</span> press<span class="hl sym">;</span>
+	<span class="hl kwd">InitializeDriveMotors</span><span class="hl sym">();</span>
+	<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Drive motors initialized</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+
+	<span class="hl kwa">while</span><span class="hl sym">(</span><span class="hl num">1</span><span class="hl sym">) {</span>
+
+		<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Bump sensor: %d Front: %d middle %d</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">,</span> <span class="hl kwd">CheckBumpSensor</span><span class="hl sym">(</span>NORTH<span class="hl sym">),</span> <span class="hl kwd">CheckTapeSensor</span><span class="hl sym">(</span>FRONT<span class="hl sym">),</span> <span class="hl kwd">CheckTapeSensor</span><span class="hl sym">(</span>MIDDLE<span class="hl sym">));</span>
+
+		<span class="hl kwa">if</span> <span class="hl sym">(</span><span class="hl kwd">kbhit</span><span class="hl sym">() ==</span> <span class="hl num">1</span><span class="hl sym">) {</span>
+
+			press <span class="hl sym">= (</span><span class="hl kwb">char</span><span class="hl sym">)</span><span class="hl kwd">getchar</span><span class="hl sym">();</span>
+			<span class="hl kwa">switch</span><span class="hl sym">(</span>press<span class="hl sym">) {</span>
+				<span class="hl kwa">case</span> <span class="hl str">'w'</span><span class="hl sym">:</span> <span class="hl kwd">MotorForward</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> <span class="hl num">50</span><span class="hl sym">);</span> <span class="hl kwd">MotorForward</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> <span class="hl num">50</span><span class="hl sym">);</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+				<span class="hl kwa">case</span> <span class="hl str">'s'</span><span class="hl sym">:</span> <span class="hl kwd">MotorReverse</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> <span class="hl num">50</span><span class="hl sym">);</span> <span class="hl kwd">MotorReverse</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> <span class="hl num">50</span><span class="hl sym">);</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+				<span class="hl kwa">case</span> <span class="hl str">'a'</span><span class="hl sym">:</span> <span class="hl kwd">MotorForward</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> <span class="hl num">40</span><span class="hl sym">);</span> <span class="hl kwd">MotorReverse</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> <span class="hl num">40</span><span class="hl sym">);</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+				<span class="hl kwa">case</span> <span class="hl str">'d'</span><span class="hl sym">:</span> <span class="hl kwd">MotorReverse</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> <span class="hl num">40</span><span class="hl sym">);</span> <span class="hl kwd">MotorForward</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> <span class="hl num">40</span><span class="hl sym">);</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+				<span class="hl kwa">case</span> <span class="hl str">'q'</span><span class="hl sym">:</span> <span class="hl kwd">StopDriveMotors</span><span class="hl sym">();</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+				<span class="hl kwa">default</span><span class="hl sym">:</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+		<span class="hl sym">}</span>
+	<span class="hl sym">}</span>
+
+<span class="hl sym">}</span>
+<span class="hl dir">#endif</span> <span class="hl slc">// DRIVE_MOTOR_TEST</span>
+<span class="hl dir"></span>
+
+<span class="hl dir">#ifdef LIFT_MOTOR_TEST</span>
+<span class="hl kwb">void</span> <span class="hl kwd">main</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">) {</span>
+
+	<span class="hl kwb">char</span> press<span class="hl sym">;</span>
+
+	<span class="hl kwd">InitializeLiftMotor</span><span class="hl sym">();</span>
+	<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Drive motors initialized</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+
+	<span class="hl kwa">while</span><span class="hl sym">(</span><span class="hl num">1</span><span class="hl sym">) {</span>
+
+
+		<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Top: %d Bottom: %d liftMode: %d</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">,</span> <span class="hl kwd">CheckLiftLimitSwitch</span><span class="hl sym">(</span>TOP<span class="hl sym">),</span> <span class="hl kwd">CheckLiftLimitSwitch</span><span class="hl sym">(</span>BOTTOM<span class="hl sym">),</span> <span class="hl kwd">ReturnLiftMode</span><span class="hl sym">());</span>
+		<span class="hl kwa">if</span> <span class="hl sym">(</span><span class="hl kwd">CheckLiftLimitSwitch</span><span class="hl sym">(</span>TOP<span class="hl sym">) ==</span> <span class="hl num">1</span> <span class="hl sym">&amp;&amp;</span> <span class="hl kwd">ReturnLiftMode</span><span class="hl sym">() ==</span> LIFTING<span class="hl sym">)</span>
+			<span class="hl kwd">LiftMotorStop</span><span class="hl sym">();</span>
+		<span class="hl kwa">if</span> <span class="hl sym">(</span><span class="hl kwd">CheckLiftLimitSwitch</span><span class="hl sym">(</span>BOTTOM<span class="hl sym">) ==</span> <span class="hl num">1</span> <span class="hl sym">&amp;&amp;</span> <span class="hl kwd">ReturnLiftMode</span><span class="hl sym">() ==</span> LOWERING<span class="hl sym">)</span>
+			<span class="hl kwd">LiftMotorStop</span><span class="hl sym">();</span>
+
+		<span class="hl kwa">if</span> <span class="hl sym">(</span><span class="hl kwd">kbhit</span><span class="hl sym">() ==</span> <span class="hl num">1</span><span class="hl sym">) {</span>
+
+			press <span class="hl sym">= (</span><span class="hl kwb">char</span><span class="hl sym">)</span><span class="hl kwd">getchar</span><span class="hl sym">();</span>
+			<span class="hl kwa">switch</span><span class="hl sym">(</span>press<span class="hl sym">) {</span>
+				<span class="hl kwa">case</span> <span class="hl str">'a'</span><span class="hl sym">:</span> <span class="hl kwd">LiftMotorUp</span><span class="hl sym">();</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+				<span class="hl kwa">case</span> <span class="hl str">'s'</span><span class="hl sym">:</span> <span class="hl kwd">LiftMotorStop</span><span class="hl sym">();</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+				<span class="hl kwa">case</span> <span class="hl str">'d'</span><span class="hl sym">:</span> <span class="hl kwd">LiftMotorDown</span><span class="hl sym">();</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+				<span class="hl kwa">default</span><span class="hl sym">:</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+		<span class="hl sym">}</span>
+	<span class="hl sym">}</span>
+<span class="hl sym">}</span>
+<span class="hl dir">#endif</span> <span class="hl slc">// LIFT_MOTOR_TEST</span>
+<span class="hl dir"></span>
+
+<span class="hl dir">#ifdef SPI_TEST</span>
+<span class="hl kwb">void</span> <span class="hl kwd">main</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">) {</span>
+
+	<span class="hl kwb">char</span> KeyStroke<span class="hl sym">;</span>
+	<span class="hl kwb">unsigned char</span> BeaconNum <span class="hl sym">=</span><span class="hl num">0</span><span class="hl sym">;</span>
+	gameInfo<span class="hl sym">.</span>currentGameState <span class="hl sym">=</span> PAUSED<span class="hl sym">;</span>
+ 	gameInfo<span class="hl sym">.</span>ourHoop <span class="hl sym">=</span> RED<span class="hl sym">;</span>
+   gameInfo<span class="hl sym">.</span>ballDispensed <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+   gameInfo<span class="hl sym">.</span>availableBalls<span class="hl sym">[</span><span class="hl num">0</span><span class="hl sym">] =</span> <span class="hl num">0</span><span class="hl sym">;</span>
+   gameInfo<span class="hl sym">.</span>availableBalls<span class="hl sym">[</span><span class="hl num">1</span><span class="hl sym">] =</span> <span class="hl num">0</span><span class="hl sym">;</span>
+   gameInfo<span class="hl sym">.</span>availableBalls<span class="hl sym">[</span><span class="hl num">2</span><span class="hl sym">] =</span> <span class="hl num">0</span><span class="hl sym">;</span>
+   gameInfo<span class="hl sym">.</span>availableBalls<span class="hl sym">[</span><span class="hl num">3</span><span class="hl sym">] =</span> <span class="hl num">0</span><span class="hl sym">;</span>
+   <span class="hl kwd">TMRS12_Init</span><span class="hl sym">(</span>TMRS12_RATE_1MS<span class="hl sym">);</span>
+   <span class="hl kwd">InitSPI</span><span class="hl sym">(&amp;</span>gameInfo<span class="hl sym">);</span>
+
+	<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;To set a new dispenser number press 0-3</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+  	<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;To Query the number of balls in that dispenser, press Q</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+  	<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;To dispense from that dispenser, press D</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+  	<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;To set the hoop size to 2pt, press h</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+  	<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;To set the hoop size to 3pt, press H</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+  	<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;To query last command status, press S</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+  	<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;To query game status, press G</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+
+  <span class="hl kwa">while</span> <span class="hl sym">(</span><span class="hl num">1</span><span class="hl sym">)</span>
+  <span class="hl sym">{</span>
+  	<span class="hl kwd">UpdateSPI</span><span class="hl sym">();</span>
+
+    <span class="hl kwa">if</span> <span class="hl sym">(</span><span class="hl kwd">kbhit</span><span class="hl sym">() ==</span> <span class="hl num">1</span><span class="hl sym">)</span>  <span class="hl slc">// any key hit?</span>
+    <span class="hl sym">{</span>
+      KeyStroke <span class="hl sym">= (</span><span class="hl kwb">char</span><span class="hl sym">)</span><span class="hl kwd">getchar</span><span class="hl sym">();</span>
+      <span class="hl kwa">if</span> <span class="hl sym">((</span><span class="hl str">'0'</span> <span class="hl sym">&lt;=</span> KeyStroke<span class="hl sym">) &amp;&amp; (</span><span class="hl str">'9'</span> <span class="hl sym">&gt;=</span> KeyStroke<span class="hl sym">))</span>
+      <span class="hl sym">{</span>
+        BeaconNum <span class="hl sym">=</span> KeyStroke <span class="hl sym">-</span> <span class="hl str">'0'</span><span class="hl sym">;</span> <span class="hl slc">// if num set beacon number</span>
+        <span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">)</span><span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Setting Beacon number to %d.</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">,</span> BeaconNum<span class="hl sym">);</span>
+      <span class="hl sym">}</span>
+      <span class="hl kwa">else</span>
+        <span class="hl kwa">switch</span> <span class="hl sym">(</span>KeyStroke<span class="hl sym">)</span>
+        <span class="hl sym">{</span>
+          <span class="hl kwa">case</span> <span class="hl str">'d'</span> <span class="hl sym">:</span>
+          <span class="hl kwa">case</span> <span class="hl str">'D'</span> <span class="hl sym">:</span>
+            <span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Dispense from dispenser %x</span> <span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">,</span>  DISPENSE_BALL<span class="hl sym">+</span>BeaconNum<span class="hl sym">);</span>
+            <span class="hl kwd">AddNewCommand</span><span class="hl sym">(</span>DISPENSE_BALL<span class="hl sym">+</span>BeaconNum<span class="hl sym">);</span>
+          <span class="hl kwa">break</span><span class="hl sym">;</span>
+
+          <span class="hl kwa">case</span> <span class="hl str">'g'</span> <span class="hl sym">:</span>
+          <span class="hl kwa">case</span> <span class="hl str">'G'</span> <span class="hl sym">:</span>
+            <span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Game_STATUS, %x</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">,</span> QUERY_GAME<span class="hl sym">);</span>
+            <span class="hl kwd">AddNewCommand</span><span class="hl sym">(</span>QUERY_GAME<span class="hl sym">);</span>
+  				<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+          <span class="hl kwa">case</span> <span class="hl str">'s'</span> <span class="hl sym">:</span>
+          <span class="hl kwa">case</span> <span class="hl str">'S'</span> <span class="hl sym">:</span>
+            <span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Request_STATUS, %x</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">,</span> QUERY_STATE<span class="hl sym">);</span>
+            <span class="hl kwd">AddNewCommand</span><span class="hl sym">(</span>QUERY_STATE<span class="hl sym">);</span>
+  				<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+          <span class="hl kwa">case</span> <span class="hl str">'q'</span> <span class="hl sym">:</span>
+          <span class="hl kwa">case</span> <span class="hl str">'Q'</span> <span class="hl sym">:</span>
+            <span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;QUERY_Dispenser %x</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">,</span>QUERY_DISPENSE<span class="hl sym">+</span>BeaconNum<span class="hl sym">);</span>
+            <span class="hl kwd">AddNewCommand</span><span class="hl sym">(</span>QUERY_DISPENSE<span class="hl sym">+</span>BeaconNum<span class="hl sym">);</span>
+       		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+          <span class="hl kwa">case</span> <span class="hl str">'h'</span> <span class="hl sym">:</span>
+            <span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Hoop to 2pt, %x</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">,</span> HOOP_2<span class="hl sym">);</span>
+            <span class="hl kwd">AddNewCommand</span><span class="hl sym">(</span>HOOP_2<span class="hl sym">);</span>
+  				<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+
+          <span class="hl kwa">case</span> <span class="hl str">'H'</span> <span class="hl sym">:</span>
+            <span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Hoop to 3pt, %x</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">,</span> HOOP_3<span class="hl sym">);</span>
+            <span class="hl kwd">AddNewCommand</span><span class="hl sym">(</span>HOOP_3<span class="hl sym">);</span>
+  				<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+       		<span class="hl kwa">default</span><span class="hl sym">:</span>
+       		  <span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Urecognized keystroke</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+       		<span class="hl kwa">break</span><span class="hl sym">;</span>
+        <span class="hl sym">}</span>
+    <span class="hl sym">}</span>
+  <span class="hl sym">}</span>
+<span class="hl sym">}</span>
+<span class="hl dir">#endif</span> <span class="hl slc">// SPI_TEST</span>
+<span class="hl dir"></span>
+
+<span class="hl dir">#ifdef ULTRASONIC_TEST</span>
+<span class="hl kwb">void</span> <span class="hl kwd">main</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">) {</span>
+
+	<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Initialized ultrasonic</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+	<span class="hl kwd">InitializeUltrasonic</span><span class="hl sym">();</span>
+
+	<span class="hl kwa">while</span><span class="hl sym">(</span><span class="hl num">1</span><span class="hl sym">) {</span>
+		<span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">)</span><span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;distance %d</span><span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">,</span> <span class="hl kwd">ReturnUltrasonicDistance</span><span class="hl sym">());</span>
+	<span class="hl sym">}</span>
+<span class="hl sym">}</span>
+<span class="hl dir">#endif</span> <span class="hl slc">// ULTRASONIC_TEST</span>
+<span class="hl dir"></span>
+
+<span class="hl dir">#ifdef TOTAL_TEST</span>
+<span class="hl kwb">void</span> <span class="hl kwd">main</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">) {</span>
+
+	<span class="hl kwb">unsigned char</span> printUltrasonic <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	<span class="hl kwb">unsigned char</span> printBeacon <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	<span class="hl kwb">unsigned char</span> printTape <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	<span class="hl kwb">unsigned char</span> printLimitSwitch <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	<span class="hl kwb">char</span> KeyStroke<span class="hl sym">;</span>
+	<span class="hl kwb">unsigned char</span> BeaconNum <span class="hl sym">=</span><span class="hl num">0</span><span class="hl sym">;</span>
+	<span class="hl kwb">unsigned char</span> i<span class="hl sym">;</span>
+
+	<span class="hl kwd">InitSwitch</span><span class="hl sym">();</span>
+	gameInfo<span class="hl sym">.</span>currGameCondition <span class="hl sym">=</span> PAUSED<span class="hl sym">;</span>
+	gameInfo<span class="hl sym">.</span>prevGameCondition <span class="hl sym">=</span> PAUSED<span class="hl sym">;</span>
+	gameInfo<span class="hl sym">.</span>teamColor <span class="hl sym">=</span> <span class="hl kwd">ReturnColor</span><span class="hl sym">();</span>
+	gameInfo<span class="hl sym">.</span>ourHoop <span class="hl sym">=</span> HOOP_2<span class="hl sym">;</span>
+	gameInfo<span class="hl sym">.</span>currDispenser <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	<span class="hl kwa">for</span> <span class="hl sym">(</span>i<span class="hl sym">=</span><span class="hl num">0</span><span class="hl sym">;</span> i <span class="hl sym">&lt;</span> NUM_DISPENSERS<span class="hl sym">;</span> i<span class="hl sym">++) {</span>
+		gameInfo<span class="hl sym">.</span>ballDispensed<span class="hl sym">[</span>i<span class="hl sym">] =</span> <span class="hl num">1</span><span class="hl sym">;</span>
+		gameInfo<span class="hl sym">.</span>availableBalls<span class="hl sym">[</span>i<span class="hl sym">] =</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+	gameInfo<span class="hl sym">.</span>querySent <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	gameInfo<span class="hl sym">.</span>queryComplete <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	gameInfo<span class="hl sym">.</span>initialQuery <span class="hl sym">=</span> <span class="hl num">1</span><span class="hl sym">;</span>
+	gameInfo<span class="hl sym">.</span>remainingBalls <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+   <span class="hl kwd">TMRS12_Init</span><span class="hl sym">(</span>TMRS12_RATE_1MS<span class="hl sym">);</span>
+   <span class="hl kwd">InitSPI</span><span class="hl sym">(&amp;</span>gameInfo<span class="hl sym">);</span>
+
+	<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;To set a new dispenser number press 0-3</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+  	<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;To Query the number of balls in that dispenser, press Q</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+  	<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;To dispense from that dispenser, press D</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+  	<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;To set the hoop size to 2pt, press h</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+  	<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;To set the hoop size to 3pt, press H</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+  	<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;To query last command status, press S</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+  	<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;To query game status, press G</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+	<span class="hl kwd">InitializeLiftMotor</span><span class="hl sym">();</span>
+	<span class="hl kwd">InitializeDriveMotors</span><span class="hl sym">();</span>
+	<span class="hl kwd">InitializeUltrasonic</span><span class="hl sym">();</span>
+	<span class="hl kwd">InitializeBeacons</span><span class="hl sym">();</span>
+
+	<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Drive motors initialized</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+	<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;teamColor: %d</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">,</span> gameInfo<span class="hl sym">.</span>teamColor<span class="hl sym">);</span>
+
+	<span class="hl kwa">while</span><span class="hl sym">(</span><span class="hl num">1</span><span class="hl sym">) {</span>
+
+		<span class="hl kwa">if</span><span class="hl sym">(</span>printUltrasonic<span class="hl sym">)</span>
+			<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;distance %d</span><span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">,</span> <span class="hl kwd">ReturnUltrasonicDistance</span><span class="hl sym">());</span>
+	  	<span class="hl kwa">if</span><span class="hl sym">(</span>printBeacon<span class="hl sym">)</span>
+	  		<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;left: %d lPer: %d lHiPer: %d right: %d rPer: %d rHiPer %d</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">,</span> <span class="hl kwd">CheckBeaconDetected</span><span class="hl sym">(</span>LEFT<span class="hl sym">),</span> <span class="hl kwd">ReturnPeriod</span><span class="hl sym">(</span>LEFT<span class="hl sym">),</span> <span class="hl kwd">ReturnHighTime</span><span class="hl sym">(</span>LEFT<span class="hl sym">),</span> <span class="hl kwd">CheckBeaconDetected</span><span class="hl sym">(</span>RIGHT<span class="hl sym">),</span> <span class="hl kwd">ReturnPeriod</span><span class="hl sym">(</span>RIGHT<span class="hl sym">),</span> <span class="hl kwd">ReturnHighTime</span><span class="hl sym">(</span>RIGHT<span class="hl sym">));</span>
+	  	<span class="hl kwa">if</span><span class="hl sym">(</span>printTape<span class="hl sym">)</span>
+	  		<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Bump sensor: %d Front: %d middle %d</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">,</span> <span class="hl kwd">CheckBumpSensor</span><span class="hl sym">(</span>NORTH<span class="hl sym">),</span> <span class="hl kwd">CheckTapeSensor</span><span class="hl sym">(</span>FRONT<span class="hl sym">),</span> <span class="hl kwd">CheckTapeSensor</span><span class="hl sym">(</span>MIDDLE<span class="hl sym">));</span>
+	  	<span class="hl kwa">if</span><span class="hl sym">(</span>printLimitSwitch<span class="hl sym">)</span>
+	  	 	<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;limitTop: %d limitBottom: %d liftmode: %d</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">,</span> <span class="hl kwd">CheckLiftLimitSwitch</span><span class="hl sym">(</span>TOP<span class="hl sym">),</span> <span class="hl kwd">CheckLiftLimitSwitch</span><span class="hl sym">(</span>BOTTOM<span class="hl sym">),</span><span class="hl kwd">ReturnLiftMode</span><span class="hl sym">());</span>
+
+	  	<span class="hl kwd">UpdateSPI</span><span class="hl sym">();</span>
+	  	<span class="hl kwa">if</span> <span class="hl sym">(</span><span class="hl kwd">CheckLiftLimitSwitch</span><span class="hl sym">(</span>TOP<span class="hl sym">) ==</span> <span class="hl num">1</span> <span class="hl sym">&amp;&amp;</span> <span class="hl kwd">ReturnLiftMode</span><span class="hl sym">() ==</span> LIFTING<span class="hl sym">)</span>
+				<span class="hl kwd">LiftMotorStop</span><span class="hl sym">();</span>
+		<span class="hl kwa">if</span> <span class="hl sym">(</span><span class="hl kwd">CheckLiftLimitSwitch</span><span class="hl sym">(</span>BOTTOM<span class="hl sym">) ==</span> <span class="hl num">1</span> <span class="hl sym">&amp;&amp;</span> <span class="hl kwd">ReturnLiftMode</span><span class="hl sym">() ==</span> LOWERING<span class="hl sym">)</span>
+				<span class="hl kwd">LiftMotorStop</span><span class="hl sym">();</span>
+
+		<span class="hl kwa">if</span> <span class="hl sym">(</span><span class="hl kwd">kbhit</span><span class="hl sym">() ==</span> <span class="hl num">1</span><span class="hl sym">) {</span>
+	      KeyStroke <span class="hl sym">= (</span><span class="hl kwb">char</span><span class="hl sym">)</span><span class="hl kwd">getchar</span><span class="hl sym">();</span>
+	      <span class="hl kwa">if</span> <span class="hl sym">((</span><span class="hl str">'0'</span> <span class="hl sym">&lt;=</span> KeyStroke<span class="hl sym">) &amp;&amp; (</span><span class="hl str">'9'</span> <span class="hl sym">&gt;=</span> KeyStroke<span class="hl sym">))</span>
+	      <span class="hl sym">{</span>
+	        BeaconNum <span class="hl sym">=</span> KeyStroke <span class="hl sym">-</span> <span class="hl str">'0'</span><span class="hl sym">;</span> <span class="hl slc">// if num set beacon number</span>
+	        <span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">)</span><span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Setting Beacon number to %d.</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">,</span> BeaconNum<span class="hl sym">);</span>
+	      <span class="hl sym">}</span>
+	      <span class="hl kwa">else</span>
+	        <span class="hl kwa">switch</span> <span class="hl sym">(</span>KeyStroke<span class="hl sym">)</span>
+	        <span class="hl sym">{</span>
+	        		<span class="hl kwa">case</span> <span class="hl str">'i'</span><span class="hl sym">:</span> <span class="hl kwd">MotorForward</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> <span class="hl num">85</span><span class="hl sym">);</span> <span class="hl kwd">MotorForward</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> <span class="hl num">85</span><span class="hl sym">);</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+					<span class="hl kwa">case</span> <span class="hl str">'m'</span><span class="hl sym">:</span> <span class="hl kwd">MotorReverse</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> <span class="hl num">50</span><span class="hl sym">);</span> <span class="hl kwd">MotorReverse</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> <span class="hl num">50</span><span class="hl sym">);</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+					<span class="hl kwa">case</span> <span class="hl str">'j'</span><span class="hl sym">:</span> <span class="hl kwd">MotorForward</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> <span class="hl num">50</span><span class="hl sym">);</span> <span class="hl kwd">MotorReverse</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> <span class="hl num">50</span><span class="hl sym">);</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+					<span class="hl kwa">case</span> <span class="hl str">'l'</span><span class="hl sym">:</span> <span class="hl kwd">MotorReverse</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> <span class="hl num">50</span><span class="hl sym">);</span> <span class="hl kwd">MotorForward</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> <span class="hl num">50</span><span class="hl sym">);</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+					<span class="hl kwa">case</span> <span class="hl str">'k'</span><span class="hl sym">:</span> <span class="hl kwd">StopDriveMotors</span><span class="hl sym">();</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+					<span class="hl kwa">case</span> <span class="hl str">'v'</span><span class="hl sym">:</span> <span class="hl kwd">LiftMotorUp</span><span class="hl sym">();</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+					<span class="hl kwa">case</span> <span class="hl str">'b'</span><span class="hl sym">:</span> <span class="hl kwd">LiftMotorStop</span><span class="hl sym">();</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+					<span class="hl kwa">case</span> <span class="hl str">'n'</span><span class="hl sym">:</span> <span class="hl kwd">LiftMotorDown</span><span class="hl sym">();</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	       	<span class="hl kwa">case</span> <span class="hl str">'U'</span><span class="hl sym">:</span>  printUltrasonic <span class="hl sym">=</span> <span class="hl num">1</span><span class="hl sym">;</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+	     		<span class="hl kwa">case</span> <span class="hl str">'u'</span><span class="hl sym">:</span>  printUltrasonic <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+	     		<span class="hl kwa">case</span> <span class="hl str">'Y'</span><span class="hl sym">:</span> printBeacon <span class="hl sym">=</span> <span class="hl num">1</span><span class="hl sym">;</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+       		<span class="hl kwa">case</span> <span class="hl str">'y'</span><span class="hl sym">:</span> printBeacon <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+       	  <span class="hl kwa">case</span> <span class="hl str">'T'</span><span class="hl sym">:</span> printTape <span class="hl sym">=</span> <span class="hl num">1</span><span class="hl sym">;</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+	        <span class="hl kwa">case</span> <span class="hl str">'t'</span><span class="hl sym">:</span> printTape <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+	        <span class="hl kwa">case</span> <span class="hl str">'R'</span><span class="hl sym">:</span> printLimitSwitch <span class="hl sym">=</span> <span class="hl num">1</span><span class="hl sym">;</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+	        <span class="hl kwa">case</span> <span class="hl str">'r'</span><span class="hl sym">:</span> printLimitSwitch <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+
+
+
+	          <span class="hl kwa">case</span> <span class="hl str">'d'</span> <span class="hl sym">:</span>
+	          <span class="hl kwa">case</span> <span class="hl str">'D'</span> <span class="hl sym">:</span>
+	            <span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Dispense from dispenser %x</span> <span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">,</span>  DISPENSE_BALL<span class="hl sym">+</span>BeaconNum<span class="hl sym">);</span>
+	            <span class="hl kwd">AddNewCommand</span><span class="hl sym">(</span>DISPENSE_BALL<span class="hl sym">+</span>BeaconNum<span class="hl sym">);</span>
+	          <span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	          <span class="hl kwa">case</span> <span class="hl str">'g'</span> <span class="hl sym">:</span>
+	          <span class="hl kwa">case</span> <span class="hl str">'G'</span> <span class="hl sym">:</span>
+	            <span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Game_STATUS, %x</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">,</span> QUERY_GAME<span class="hl sym">);</span>
+	            <span class="hl kwd">AddNewCommand</span><span class="hl sym">(</span>QUERY_GAME<span class="hl sym">);</span>
+	  				<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	          <span class="hl kwa">case</span> <span class="hl str">'s'</span> <span class="hl sym">:</span>
+	          <span class="hl kwa">case</span> <span class="hl str">'S'</span> <span class="hl sym">:</span>
+	            <span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Request_STATUS, %x</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">,</span> QUERY_STATE<span class="hl sym">);</span>
+	            <span class="hl kwd">AddNewCommand</span><span class="hl sym">(</span>QUERY_STATE<span class="hl sym">);</span>
+	  				<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	          <span class="hl kwa">case</span> <span class="hl str">'q'</span> <span class="hl sym">:</span>
+	          <span class="hl kwa">case</span> <span class="hl str">'Q'</span> <span class="hl sym">:</span>
+	            <span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;QUERY_Dispenser %x</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">,</span>QUERY_DISPENSE<span class="hl sym">+</span>BeaconNum<span class="hl sym">);</span>
+	            <span class="hl kwd">AddNewCommand</span><span class="hl sym">(</span>QUERY_DISPENSE<span class="hl sym">+</span>BeaconNum<span class="hl sym">);</span>
+	       		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	          <span class="hl kwa">case</span> <span class="hl str">'h'</span> <span class="hl sym">:</span>
+	            <span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Hoop to 2pt, %x</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">,</span> HOOP_2<span class="hl sym">);</span>
+	            <span class="hl kwd">AddNewCommand</span><span class="hl sym">(</span>HOOP_2<span class="hl sym">);</span>
+	  				<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+
+	          <span class="hl kwa">case</span> <span class="hl str">'H'</span> <span class="hl sym">:</span>
+	            <span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Hoop to 3pt, %x</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">,</span> HOOP_3<span class="hl sym">);</span>
+	            <span class="hl kwd">AddNewCommand</span><span class="hl sym">(</span>HOOP_3<span class="hl sym">);</span>
+	  				<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	       		<span class="hl kwa">default</span><span class="hl sym">:</span>
+	       		  <span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Urecognized keystroke</span><span class="hl esc">\n\r</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+	       		<span class="hl kwa">break</span><span class="hl sym">;</span>
+	        <span class="hl sym">}</span>
+		<span class="hl sym">}</span>
+	<span class="hl sym">}</span>
+<span class="hl sym">}</span>
+<span class="hl dir">#endif</span> <span class="hl slc">// TOTAL_TEST</span>
+<span class="hl dir"></span>
+
+<span class="hl dir">#ifdef HALF_COURT</span>
+<span class="hl kwb">void</span> <span class="hl kwd">Init</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">) {</span>
+
+	<span class="hl kwb">unsigned char</span> i<span class="hl sym">;</span>
+	<span class="hl kwd">InitSwitch</span><span class="hl sym">();</span>
+	gameInfo<span class="hl sym">.</span>currGameCondition <span class="hl sym">=</span> PAUSED<span class="hl sym">;</span>
+	gameInfo<span class="hl sym">.</span>prevGameCondition <span class="hl sym">=</span> PAUSED<span class="hl sym">;</span>
+	gameInfo<span class="hl sym">.</span>teamColor <span class="hl sym">=</span> <span class="hl kwd">ReturnColor</span><span class="hl sym">();</span>
+	gameInfo<span class="hl sym">.</span>ourHoop <span class="hl sym">=</span> HOOP_2<span class="hl sym">;</span>
+	gameInfo<span class="hl sym">.</span>currDispenser <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	<span class="hl kwa">for</span> <span class="hl sym">(</span>i<span class="hl sym">=</span><span class="hl num">0</span><span class="hl sym">;</span> i <span class="hl sym">&lt;</span> NUM_DISPENSERS<span class="hl sym">;</span> i<span class="hl sym">++) {</span>
+		gameInfo<span class="hl sym">.</span>ballDispensed<span class="hl sym">[</span>i<span class="hl sym">] =</span> <span class="hl num">1</span><span class="hl sym">;</span>
+		gameInfo<span class="hl sym">.</span>availableBalls<span class="hl sym">[</span>i<span class="hl sym">] =</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+	gameInfo<span class="hl sym">.</span>querySent <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	gameInfo<span class="hl sym">.</span>queryComplete <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	gameInfo<span class="hl sym">.</span>initialQuery <span class="hl sym">=</span> <span class="hl num">1</span><span class="hl sym">;</span>
+	gameInfo<span class="hl sym">.</span>remainingBalls <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+
+	<span class="hl kwd">TMRS12_Init</span><span class="hl sym">(</span>TMRS12_RATE_1MS<span class="hl sym">);</span>
+ 	<span class="hl kwd">InitializeLiftMotor</span><span class="hl sym">();</span>
+	<span class="hl kwd">InitializeDriveMotors</span><span class="hl sym">();</span>
+	<span class="hl kwd">InitializeUltrasonic</span><span class="hl sym">();</span>
+	<span class="hl kwd">InitializeBeacons</span><span class="hl sym">();</span>
+
+ 	<span class="hl kwd">InitSPI</span><span class="hl sym">(&amp;</span>gameInfo<span class="hl sym">);</span>
+ 	<span class="hl kwd">InitStrategy</span><span class="hl sym">(&amp;</span>gameInfo<span class="hl sym">);</span>
+<span class="hl sym">}</span>
+
+<span class="hl kwb">void</span> <span class="hl kwd">main</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">) {</span>
+
+	<span class="hl kwd">Init</span><span class="hl sym">();</span>
+	<span class="hl kwa">while</span><span class="hl sym">(</span><span class="hl num">1</span><span class="hl sym">) {</span>
+		<span class="hl kwd">UpdateSPI</span><span class="hl sym">();</span>
+		<span class="hl kwd">UpdateStrategy</span><span class="hl sym">();</span>
+	<span class="hl sym">}</span>
+<span class="hl sym">}</span>
+<span class="hl dir">#endif</span> <span class="hl slc">// HALF_COURT</span>
+<span class="hl dir"></span>
+<span class="hl dir">#ifdef TIMER_TEST</span>
+<span class="hl kwb">void</span> <span class="hl kwd">main</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">) {</span>
+  <span class="hl kwd">TMRS12_Init</span><span class="hl sym">(</span>TMRS12_RATE_1MS<span class="hl sym">);</span>
+  <span class="hl kwd">TMRS12_InitTimer</span><span class="hl sym">(</span>DUMPING_BALL_TIMER<span class="hl sym">,</span> <span class="hl num">2000</span><span class="hl sym">);</span>
+
+  <span class="hl kwa">while</span><span class="hl sym">(</span><span class="hl num">1</span><span class="hl sym">) {</span>
+    <span class="hl kwa">if</span><span class="hl sym">(</span><span class="hl kwd">TMRS12_IsTimerExpired</span><span class="hl sym">(</span>DUMPING_BALL_TIMER<span class="hl sym">) ==</span> TMRS12_EXPIRED<span class="hl sym">) {</span>
+      <span class="hl kwd">TMRS12_ClearTimerExpired</span><span class="hl sym">(</span>DUMPING_BALL_TIMER<span class="hl sym">);</span>
+      <span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Timer expired!</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+      <span class="hl kwd">TMRS12_InitTimer</span><span class="hl sym">(</span>DUMPING_BALL_TIMER<span class="hl sym">,</span> <span class="hl num">2000</span><span class="hl sym">);</span>
+    <span class="hl sym">}</span>
+  <span class="hl sym">}</span>
+
+<span class="hl sym">}</span>
+<span class="hl dir">#endif</span>
+</pre>
+</body>
+</html>
+<!--HTML generated by highlight 2.13, http://www.andre-simon.de/-->

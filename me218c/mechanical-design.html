@@ -1,0 +1,115 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv='X-UA-Compatible' content='IE=EmulateIE7' />
+<title>Mechanical Design - ME218C: Team Oregon Trail</title>
+
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+
+<link rel='stylesheet' href='http://cdn1.weebly.com/editor/images/common/common.css?9' type='text/css' />
+<link rel='stylesheet' type='text/css' href='files/main_style.css?1306803949' title='wsite-theme-css' />
+<style type='text/css'>
+#wsite-content div.paragraph, #wsite-content p, #wsite-content .product-description, .blog-sidebar div.paragraph, .blog-sidebar p{}
+#wsite-content h2, #wsite-content .product-title, .blog-sidebar h2{}
+#wsite-title{}
+</style>
+<style type='text/css'>
+.wsite-header {
+	background-image: url(uploads/7/6/4/8/7648233/header_images/1306797373.jpg) !important;
+	background-position: 0 0 !important;
+}
+</style>
+<script type='text/javascript'><!--
+var STATIC_BASE = 'http://cdn1.weebly.com/';
+var STYLE_PREFIX = 'wsite';
+//-->
+</script>
+<script type='text/javascript' src='http://cdn1.weebly.com/libraries/prototype/1.7-custom/prototype.min.js'></script>
+<script type='text/javascript' src='http://cdn1.weebly.com/libraries/scriptaculous/1.9.0-custom/effects.min.js'></script>
+<script type='text/javascript' src='http://cdn1.weebly.com/editor/images/common/utilities.js?2'></script>
+<script type='text/javascript' src='http://cdn1.weebly.com/editor/images/common/lightbox202.js?9'></script>
+<script type='text/javascript' src='http://cdn1.weebly.com/editor/libraries/flyout_menus.js?13'></script>
+<script type='text/javascript'><!--
+var IS_ARCHIVE=1;
+function initFlyouts(){initPublishedFlyoutMenus([{"id":"827577867979079627","title":"Home","url":"index.html"},{"id":"204663019954184299","title":"Meet the Team","url":"meet-the-team.html"},{"id":"395667095664308912","title":"Project Scope","url":"project-scope.html"},{"id":"417712849233469031","title":"Design Overview","url":"design-overview.html"},{"id":"420071610921579493","title":"Mechanical Design","url":"mechanical-design.html"},{"id":"944511565360168593","title":"Electrical Design","url":"electrical-design.html"},{"id":"940510528500066676","title":"Software Design","url":"software-design.html"},{"id":"623533585875987356","title":"Bill of Materials","url":"bill-of-materials.html"},{"id":"388808413366027315","title":"Gems of Wisdom","url":"gems-of-wisdom.html"},{"id":"640860537589248877","title":"Media","url":"media.html"}],'420071610921579493',"<li class='wsite-nav-more'><a href=\"#\">more...<\/a><\/li>",'active',false)}
+if (Prototype.Browser.IE) window.onload=initFlyouts; else document.observe('dom:loaded', initFlyouts);
+//-->
+</script>
+</head>
+<body class='wsite-page-mechanical-design'>
+<div id="container">
+
+<div id="banner">
+<div id="bannerLeft" class="wsite-header"></div>
+<div id="bannerRight">
+<h1><span id="wsite-title">ME218C: Team Oregon Trail</span></h1>
+</div>
+</div>
+
+<div id="content">
+
+<div id="leftColumn">
+<ul id="nav">
+<li id='pg827577867979079627'><a href="index.html">Home</a></li><li id='pg204663019954184299'><a href="meet-the-team.html">Meet the Team</a></li><li id='pg395667095664308912'><a href="project-scope.html">Project Scope</a></li><li id='pg417712849233469031'><a href="design-overview.html">Design Overview</a></li><li id="active"><a href="mechanical-design.html">Mechanical Design</a></li><li id='pg944511565360168593'><a href="electrical-design.html">Electrical Design</a></li><li id='pg940510528500066676'><a href="software-design.html">Software Design</a></li><li id='pg623533585875987356'><a href="bill-of-materials.html">Bill of Materials</a></li><li id='pg388808413366027315'><a href="gems-of-wisdom.html">Gems of Wisdom</a></li><li id='pg640860537589248877'><a href="media.html">Media</a></li>
+
+</ul>
+<div id="leftColumnBottom"></p>
+
+</div>
+</div>
+
+<div id="rightColumn">
+
+<div id='wsite-content'><h2  style=" text-align: left; ">Mechanical Design: Summary<br /></h2>
+<div  class="paragraph editable-text" style=" text-align: left; display: block; ">  Our project was split in two separate sub-systems, the CVC (controller) and ACV (boat).&nbsp; Each system was outfitted with a ZigBee wireless radio for communication according to the protocol developed by the class. <br /><br />    For the controller, we instrumented a fixed gear bicycle to get speed and steering commands.&nbsp; To measure rear wheel speed, we mounted three magnets around the spokes and attached three hall-effect sensors to the bike frame.&nbsp; Using interrupt-based input captures, we determined the rotational velocity and mapped it to a 0-100 PWM duty cycle.&nbsp; From the same data, we determined the rotation direction based on the order the sensors are triggered.&nbsp; We found the direction of the handlebars using a rotary position IC containing multi-axis hall effect sensors.&nbsp; For our third input, the driver rang a bell (with a push button mounted inside) to initiate a boost.<br /><br />    We built a catamaran style boat with a dual propeller propulsion system. Our goal was to maximize the boat&rsquo;s stability by evenly distributing the weight and keeping a low center of mass. Using a differential drive strategy allowed the boat to move forwards, backwards, and change direction depending on the bike&rsquo;s commands.&nbsp; To improve the boat&rsquo;s response we added a paddle wheel to measure the boat speed, which gave us the opportunity to implement a control loop.&nbsp; To protect the electronics from water, we used a wire frame covered with clear plastic as well as Tupperware containers for each sub part. <br />  </div>
+
+<h2  style=" text-align: left; ">Mechanical Design: Bike</h2>
+
+<div ><div style="text-align: center;"><a><img src="uploads/7/6/4/8/7648233/2962544.jpg?421" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div  class="paragraph editable-text" style=" text-align: left; ">All the electronics for the controller were housed in a small container between the handlebars. On the top face, we attached a modified bell containing a push button to trigger the boost. Also, there is a five LED display that shows what team has control of each atoll. Lastly, a servo changes position as the boost recharges.<br /></div>
+
+<div ><div style="text-align: center;"><a><img src="uploads/7/6/4/8/7648233/8065711.jpg?400" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div  class="paragraph editable-text" style=" text-align: left; ">We rigidly attached three hall-effect sensors to the bike frame via bolts. Three magnets were equally spaced on the spokes so there will be a regularly generated pulse.<br /></div>
+
+<div ><div style="text-align: center;"><a><img src="uploads/7/6/4/8/7648233/3311985.jpg?409" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div  class="paragraph editable-text" style=" text-align: left; ">The Melexis rotary sensor was rigidly attached to the bike frame adjacent to two magnets on the handlebars.&nbsp; This allows us to determine the rotation of the handlebars relative to the bike.<br /></div>
+
+<h2  style=" text-align: left; ">Mechanical Design: Boat</h2>
+
+<div ><div style="text-align: center;"><a><img src="uploads/7/6/4/8/7648233/9848679.jpg?375" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div  class="paragraph editable-text" style=" text-align: left; ">The team color flag (red or green) is lifted by a servo mounted at the stern.<br /></div>
+
+<div ><div style="text-align: center;"><a><img src="uploads/7/6/4/8/7648233/9361520.jpg?364" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div  class="paragraph editable-text" style=" text-align: left; ">The first layer of water protection consists of a bent wire frame, covered by a clear plastic sheet, and attached to our main support plate using nuts and bolts.<br /></div>
+
+<div ><div style="text-align: center;"><a><img src="uploads/7/6/4/8/7648233/6245772.jpg?391" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div  class="paragraph editable-text" style=" text-align: left; "><br />Each half of the propulsion system consists of a propeller mounted to a&hellip;diameter shaft, which is connected to a&hellip;motor using a u-joint coupling.&nbsp; The shaft is contained inside a&hellip;diameter sleeve and lubricated with&hellip;(which also prevents water from moving up the shaft). Both motors were secured inside Tupperware containers with tightly fitting foam blocks.<br /></div>
+
+<div ><div style="text-align: center;"><a><img src="uploads/7/6/4/8/7648233/2697399.jpg?382" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div  class="paragraph editable-text" style=" text-align: left; ">We built a paddle wheel out of acrylic and attached it to the bow with &frac14; inch roller bearings press fit into vertical acrylic supports. A Melexis rotary sensor was mounted adjacent to two magnets on the shaft allowing us to measure rotational velocity of the paddle wheel.<br /></div>
+
+<div ><div style="text-align: center;"><a><img src="uploads/7/6/4/8/7648233/7352770.jpg?366" style="margin-top: 10px; margin-bottom: 10px; margin-left: 0; margin-right: 0; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div  class="paragraph editable-text" style=" text-align: left; ">The RFID antenna was attached to the bow with an L-bracket making it easy to steer the it towards the atolls for capture.<br /></div>
+
+</div>
+
+</div>
+
+<div id="clear">
+</div>
+
+</div>
+
+</div>
+<div id="copyright"> <span id='weeblyFooter'>Create a <a target="_top" href="http://www.weebly.com/">free web site</a> with <a target="_top" href="http://www.weebly.com/" title="free web site">Weebly</a></span></div>
+
+</body>
+</html>

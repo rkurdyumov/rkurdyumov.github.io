@@ -1,0 +1,313 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<title>SPI.c</title>
+<link rel="stylesheet" type="text/css" href="highlight.css">
+</head>
+<body class="hl">
+<pre class="hl"><span class="hl com">/**************************************************************************</span>
+<span class="hl com"></span>
+<span class="hl com">SPI querying module</span>
+<span class="hl com"></span>
+<span class="hl com">**************************************************************************/</span>
+
+<span class="hl com">/*---------------------------- Include Files ----------------------------*/</span>
+<span class="hl dir">#include &lt;stdio.h&gt;</span>
+<span class="hl dir">#include &lt;hidef.h&gt;</span>      <span class="hl com">/* common defines and macros */</span><span class="hl dir"></span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;S12eVec.h&quot;</span><span class="hl dir"></span>		<span class="hl com">/* interrupts */</span><span class="hl dir"></span>
+<span class="hl dir">#include &lt;timers12.h&gt;</span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;game.h&quot;</span><span class="hl dir"></span>
+
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;SPI.h&quot;</span><span class="hl dir"></span>
+
+<span class="hl com">/*--------------------------- Module Defines ----------------------------*/</span>
+<span class="hl dir">#define SEND_QUEUE_SIZE		10</span>
+<span class="hl dir">#define JUNK_COMMAND			0x50</span>
+
+<span class="hl dir">#define NEW_COM_TIME			100</span>
+<span class="hl dir">#define SEND_COM_TIME		1</span>
+<span class="hl dir">#define SEND_JUNK_TIME		1</span>
+<span class="hl dir">#define RECEIVE_RESP_TIME	1</span>
+
+<span class="hl dir">#define QUERY_DISPENSE_PENDING	0xB0</span>
+<span class="hl dir">#define DISPENSE_NUMBER				0xC0</span>
+<span class="hl dir">#define REQUEST_PENDING 			0xD1</span>
+<span class="hl dir">#define REQUEST_SUCCEEDED 			0xDF</span>
+<span class="hl dir">#define REQUEST_FAILED				0xD0</span>
+<span class="hl dir">#define GAME_PAUSED					0xE0</span>
+<span class="hl dir">#define GAME_RUNNING					0xE1</span>
+<span class="hl dir">#define GAME_OVER_RED_WON			0xE2</span>
+<span class="hl dir">#define GAME_OVER_GREEN_WON		0xE4</span>
+<span class="hl dir">#define INVALID_COMMAND				0xFE</span>
+
+<span class="hl dir">#define PRINT_SPI					1</span>
+
+<span class="hl com">/*---------------------------- Module Types -----------------------------*/</span>
+<span class="hl kwc">typedef</span> <span class="hl kwb">enum</span> <span class="hl sym">{</span>
+	SENDING_COMMAND<span class="hl sym">,</span>
+	SENDING_JUNK<span class="hl sym">,</span>
+	RECEIVING_RESPONSE<span class="hl sym">,</span>
+	WAITING_FOR_NEW_COMMAND
+<span class="hl sym">}</span> SPI_STATE_t<span class="hl sym">;</span>
+
+<span class="hl com">/*-------------------------- Module Variables ---------------------------*/</span>
+<span class="hl kwb">static unsigned char</span> sendQueue<span class="hl sym">[</span>SEND_QUEUE_SIZE<span class="hl sym">];</span>
+<span class="hl kwb">static unsigned char</span> currSendIndex<span class="hl sym">;</span>
+<span class="hl kwb">static unsigned char</span> requestedCommand<span class="hl sym">;</span>
+SPI_STATE_t currSPIState<span class="hl sym">;</span>
+game_info_s <span class="hl sym">*</span>game_info<span class="hl sym">;</span>
+
+<span class="hl com">/*-------------------------- Module Functions ---------------------------*/</span>
+<span class="hl kwb">void</span> <span class="hl kwd">HandleSPIResponse</span><span class="hl sym">(</span><span class="hl kwb">unsigned char</span> response<span class="hl sym">);</span>
+
+<span class="hl com">/*----------------------------- Module Code -----------------------------*/</span>
+
+<span class="hl kwb">void</span> <span class="hl kwd">InitSPI</span><span class="hl sym">(</span>game_info_s <span class="hl sym">*</span>gameInfo<span class="hl sym">) {</span>
+
+  <span class="hl kwb">unsigned int</span> i<span class="hl sym">;</span>
+
+  <span class="hl slc">// setup SPI to mode 3, master, MSB first, no interrupts</span>
+  SPICR1 <span class="hl sym">|=</span> _S12_MSTR<span class="hl sym">;</span> <span class="hl slc">// Set E128 as master</span>
+  SPICR1 <span class="hl sym">&amp;= ~</span>_S12_LSFBE<span class="hl sym">;</span> <span class="hl slc">// Set to send/receive most significant bit first</span>
+  SPIBR <span class="hl sym">|= (</span>_S12_SPPR0 <span class="hl sym">|</span> _S12_SPPR1<span class="hl sym">|</span> _S12_SPPR2<span class="hl sym">);</span> <span class="hl slc">// SPPR = 7;</span>
+  SPIBR <span class="hl sym">|=</span> _S12_SPR1<span class="hl sym">;</span> <span class="hl slc">// SPR = 2, so divisor = (1+7)*2^(2+1) = 64 (24 Mhz / 64 = 375 KHz)</span>
+  SPICR1 <span class="hl sym">|=</span> _S12_CPOL <span class="hl sym">|</span> _S12_CPHA<span class="hl sym">;</span> <span class="hl slc">// Polarity: Active Low, sample even edges (mode 3)</span>
+  SPICR1 <span class="hl sym">|=</span> _S12_SSOE<span class="hl sym">;</span> <span class="hl slc">// Enable slave select output</span>
+  SPICR2 <span class="hl sym">|=</span> _S12_MODFEN<span class="hl sym">;</span> <span class="hl slc">// Hardware automatically lowers/raises SS</span>
+  SPICR1 <span class="hl sym">|=</span> _S12_SPE<span class="hl sym">;</span> <span class="hl slc">// Enable SPI</span>
+
+  <span class="hl kwa">for</span> <span class="hl sym">(</span>i<span class="hl sym">=</span><span class="hl num">0</span><span class="hl sym">;</span> i<span class="hl sym">&lt;</span>SEND_QUEUE_SIZE<span class="hl sym">;</span> i<span class="hl sym">++) {</span>
+  	sendQueue<span class="hl sym">[</span>i<span class="hl sym">] =</span> QUERY_GAME<span class="hl sym">;</span>
+  <span class="hl sym">}</span>
+
+  currSendIndex <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+  requestedCommand <span class="hl sym">=</span> QUERY_GAME<span class="hl sym">;</span>
+  currSPIState <span class="hl sym">=</span> WAITING_FOR_NEW_COMMAND<span class="hl sym">;</span>
+
+  <span class="hl kwd">TMRS12_InitTimer</span><span class="hl sym">(</span>SPI_TIMER<span class="hl sym">,</span> NEW_COM_TIME<span class="hl sym">);</span>
+
+  game_info <span class="hl sym">=</span> gameInfo<span class="hl sym">;</span>
+
+  <span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;printspi: %d</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">,</span> PRINT_SPI<span class="hl sym">);</span>
+<span class="hl sym">}</span>
+
+<span class="hl slc">// Add new command to send queue</span>
+<span class="hl kwb">void</span> <span class="hl kwd">AddNewCommand</span><span class="hl sym">(</span><span class="hl kwb">unsigned char</span> command<span class="hl sym">) {</span>
+
+	requestedCommand <span class="hl sym">=</span> command<span class="hl sym">;</span>
+
+	<span class="hl kwa">if</span><span class="hl sym">(</span>currSendIndex <span class="hl sym">&lt;</span> SEND_QUEUE_SIZE <span class="hl sym">-</span> <span class="hl num">2</span><span class="hl sym">)</span>
+		sendQueue<span class="hl sym">[</span>currSendIndex<span class="hl sym">+</span><span class="hl num">1</span><span class="hl sym">] =</span> command<span class="hl sym">;</span>
+	<span class="hl kwa">else</span>
+		sendQueue<span class="hl sym">[</span><span class="hl num">0</span><span class="hl sym">] =</span> command<span class="hl sym">;</span>
+<span class="hl sym">}</span>
+
+<span class="hl kwb">void</span> <span class="hl kwd">UpdateSPI</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">) {</span>
+
+	<span class="hl kwb">unsigned char</span> temp<span class="hl sym">,</span> response<span class="hl sym">;</span>
+	SPI_STATE_t nextState<span class="hl sym">;</span>
+
+	<span class="hl kwa">switch</span><span class="hl sym">(</span>currSPIState<span class="hl sym">) {</span>
+
+		<span class="hl kwa">case</span> WAITING_FOR_NEW_COMMAND<span class="hl sym">:</span>
+			<span class="hl slc">// If the new command timer has expired and it is OK to transmit</span>
+			<span class="hl kwa">if</span><span class="hl sym">(</span><span class="hl kwd">TMRS12_IsTimerExpired</span><span class="hl sym">(</span>SPI_TIMER<span class="hl sym">) ==</span> TMRS12_EXPIRED <span class="hl sym">&amp;&amp; (</span>SPISR <span class="hl sym">&amp;</span> _S12_SPTEF<span class="hl sym">) ==</span>  _S12_SPTEF<span class="hl sym">) {</span>
+				<span class="hl kwd">TMRS12_ClearTimerExpired</span><span class="hl sym">(</span>SPI_TIMER<span class="hl sym">);</span>
+				<span class="hl slc">// Load in new command to send queue</span>
+				SPIDR <span class="hl sym">=</span> sendQueue<span class="hl sym">[</span>currSendIndex<span class="hl sym">];</span>
+				nextState <span class="hl sym">=</span> SENDING_COMMAND<span class="hl sym">;</span>
+				<span class="hl kwd">TMRS12_InitTimer</span><span class="hl sym">(</span>SPI_TIMER<span class="hl sym">,</span> SEND_COM_TIME<span class="hl sym">);</span>
+			<span class="hl sym">}</span>
+			<span class="hl kwa">else</span> <span class="hl sym">{</span>
+				nextState <span class="hl sym">=</span> WAITING_FOR_NEW_COMMAND<span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+			<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span> SENDING_COMMAND<span class="hl sym">:</span>
+			<span class="hl slc">// If the send command timer has expired and data was transferred to the SPIDR</span>
+			<span class="hl kwa">if</span><span class="hl sym">(</span><span class="hl kwd">TMRS12_IsTimerExpired</span><span class="hl sym">(</span>SPI_TIMER<span class="hl sym">) ==</span> TMRS12_EXPIRED <span class="hl sym">&amp;&amp; (</span>SPISR <span class="hl sym">&amp;</span> _S12_SPIF<span class="hl sym">) ==</span>  _S12_SPIF<span class="hl sym">) {</span>
+				<span class="hl kwd">TMRS12_ClearTimerExpired</span><span class="hl sym">(</span>SPI_TIMER<span class="hl sym">);</span>
+  				<span class="hl slc">// Read the SPIDR to begin transmission</span>
+  				temp <span class="hl sym">=</span> SPIDR<span class="hl sym">;</span>
+  				nextState <span class="hl sym">=</span> SENDING_JUNK<span class="hl sym">;</span>
+				<span class="hl kwd">TMRS12_InitTimer</span><span class="hl sym">(</span>SPI_TIMER<span class="hl sym">,</span> SEND_JUNK_TIME<span class="hl sym">);</span>
+			<span class="hl sym">}</span>
+			<span class="hl kwa">else</span> <span class="hl sym">{</span>
+				nextState <span class="hl sym">=</span> SENDING_COMMAND<span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span> SENDING_JUNK<span class="hl sym">:</span>
+			<span class="hl slc">// If the send junk timer has expired and it is OK to transmit</span>
+			<span class="hl kwa">if</span><span class="hl sym">(</span><span class="hl kwd">TMRS12_IsTimerExpired</span><span class="hl sym">(</span>SPI_TIMER<span class="hl sym">) ==</span> TMRS12_EXPIRED <span class="hl sym">&amp;&amp; (</span>SPISR <span class="hl sym">&amp;</span> _S12_SPTEF<span class="hl sym">) ==</span>  _S12_SPTEF<span class="hl sym">) {</span>
+				<span class="hl kwd">TMRS12_ClearTimerExpired</span><span class="hl sym">(</span>SPI_TIMER<span class="hl sym">);</span>
+				SPIDR <span class="hl sym">=</span> JUNK_COMMAND<span class="hl sym">;</span>
+				nextState <span class="hl sym">=</span> RECEIVING_RESPONSE<span class="hl sym">;</span>
+				<span class="hl kwd">TMRS12_InitTimer</span><span class="hl sym">(</span>SPI_TIMER<span class="hl sym">,</span> RECEIVE_RESP_TIME<span class="hl sym">);</span>
+			<span class="hl sym">}</span>
+			<span class="hl kwa">else</span> <span class="hl sym">{</span>
+				nextState <span class="hl sym">=</span> SENDING_JUNK<span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span> RECEIVING_RESPONSE<span class="hl sym">:</span>
+			<span class="hl slc">// If the receving response timer has expired and data was transferred to the SPIDR</span>
+			<span class="hl kwa">if</span><span class="hl sym">(</span><span class="hl kwd">TMRS12_IsTimerExpired</span><span class="hl sym">(</span>SPI_TIMER<span class="hl sym">) ==</span> TMRS12_EXPIRED <span class="hl sym">&amp;&amp; (</span>SPISR <span class="hl sym">&amp;</span> _S12_SPIF<span class="hl sym">) ==</span>  _S12_SPIF<span class="hl sym">) {</span>
+				<span class="hl kwd">TMRS12_ClearTimerExpired</span><span class="hl sym">(</span>SPI_TIMER<span class="hl sym">);</span>
+				response <span class="hl sym">=</span> SPIDR<span class="hl sym">;</span>
+				<span class="hl kwd">HandleSPIResponse</span><span class="hl sym">(</span>response<span class="hl sym">);</span>
+				<span class="hl slc">// Replace last send command with default</span>
+				sendQueue<span class="hl sym">[</span>currSendIndex<span class="hl sym">] =</span> QUERY_GAME<span class="hl sym">;</span>
+				currSendIndex <span class="hl sym">= (</span>currSendIndex<span class="hl sym">+</span><span class="hl num">1</span><span class="hl sym">)%</span>SEND_QUEUE_SIZE<span class="hl sym">;</span> <span class="hl slc">// Move over to the next command we need to send</span>
+				nextState <span class="hl sym">=</span> WAITING_FOR_NEW_COMMAND<span class="hl sym">;</span>
+				<span class="hl kwd">TMRS12_InitTimer</span><span class="hl sym">(</span>SPI_TIMER<span class="hl sym">,</span> NEW_COM_TIME<span class="hl sym">);</span>
+			<span class="hl sym">}</span>
+			<span class="hl kwa">else</span> <span class="hl sym">{</span>
+					nextState <span class="hl sym">=</span> RECEIVING_RESPONSE<span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	<span class="hl sym">}</span>
+
+	currSPIState <span class="hl sym">=</span> nextState<span class="hl sym">;</span>
+<span class="hl sym">}</span>
+
+<span class="hl kwb">void</span> <span class="hl kwd">HandleSPIResponse</span><span class="hl sym">(</span><span class="hl kwb">unsigned char</span> response<span class="hl sym">) {</span>
+
+	<span class="hl kwb">unsigned char</span> commandtype <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	<span class="hl kwb">unsigned char</span> secondByte <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	<span class="hl kwb">unsigned char</span> nextSendIndex<span class="hl sym">;</span>
+
+	nextSendIndex <span class="hl sym">= (</span>currSendIndex<span class="hl sym">+</span><span class="hl num">1</span><span class="hl sym">)%(</span>SEND_QUEUE_SIZE<span class="hl sym">-</span><span class="hl num">1</span><span class="hl sym">);</span> <span class="hl slc">// Don't overwrite the query game slot</span>
+
+	<span class="hl kwa">switch</span><span class="hl sym">(</span>sendQueue<span class="hl sym">[</span>currSendIndex<span class="hl sym">]) {</span>
+
+		<span class="hl kwa">case</span> QUERY_STATE<span class="hl sym">:</span>
+			<span class="hl kwa">switch</span><span class="hl sym">(</span>response<span class="hl sym">) {</span>
+
+				<span class="hl kwa">case</span> REQUEST_PENDING<span class="hl sym">:</span>
+				<span class="hl slc">// Query state again</span>
+					<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Request pending</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+					sendQueue<span class="hl sym">[</span>nextSendIndex<span class="hl sym">] =</span> QUERY_STATE<span class="hl sym">;</span>
+				<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+				<span class="hl slc">// If requested command failed, send it again</span>
+				<span class="hl kwa">case</span> REQUEST_FAILED<span class="hl sym">:</span>
+					sendQueue<span class="hl sym">[</span>nextSendIndex<span class="hl sym">] =</span> requestedCommand<span class="hl sym">;</span>
+					<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Requested command failed!</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+				<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+				<span class="hl slc">// If requested succeeded, update flags accordingly</span>
+				<span class="hl kwa">case</span> REQUEST_SUCCEEDED<span class="hl sym">:</span>
+					<span class="hl kwa">if</span> <span class="hl sym">(</span>requestedCommand <span class="hl sym">==</span> HOOP_2<span class="hl sym">) {</span>
+						<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Set to HOOP2</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+					<span class="hl sym">}</span>
+					<span class="hl kwa">else if</span> <span class="hl sym">(</span>requestedCommand <span class="hl sym">==</span> HOOP_3<span class="hl sym">) {</span>
+						<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Set to HOOP3</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+					<span class="hl sym">}</span>
+					<span class="hl kwa">else</span> <span class="hl sym">{</span>
+						<span class="hl slc">// Ball has been dispensed</span>
+						<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Ball Dispensed</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+						game_info<span class="hl sym">-&gt;</span>ballDispensed<span class="hl sym">[</span>response<span class="hl sym">%</span><span class="hl num">4</span><span class="hl sym">] =</span> <span class="hl num">1</span><span class="hl sym">;</span>
+					<span class="hl sym">}</span>
+				<span class="hl kwa">break</span><span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span> QUERY_GAME<span class="hl sym">:</span>
+			<span class="hl kwa">switch</span><span class="hl sym">(</span>response<span class="hl sym">) {</span>
+
+				<span class="hl kwa">case</span> GAME_PAUSED<span class="hl sym">:</span>
+					game_info<span class="hl sym">-&gt;</span>currGameCondition <span class="hl sym">=</span> PAUSED<span class="hl sym">;</span>
+					<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Game Paused</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+				<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+				<span class="hl kwa">case</span> GAME_RUNNING<span class="hl sym">:</span>
+					game_info<span class="hl sym">-&gt;</span>currGameCondition <span class="hl sym">=</span> RUNNING<span class="hl sym">;</span>
+					<span class="hl slc">//printf(&quot;Game Running \r\n&quot;);</span>
+				<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+				<span class="hl kwa">case</span> GAME_OVER_RED_WON<span class="hl sym">:</span>
+					<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Game Over, Red Won</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+					game_info<span class="hl sym">-&gt;</span>currGameCondition <span class="hl sym">=</span> RED_WON<span class="hl sym">;</span>
+				<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+				<span class="hl kwa">case</span> GAME_OVER_GREEN_WON<span class="hl sym">:</span>
+					<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Game Over, Green Won</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+					game_info<span class="hl sym">-&gt;</span>currGameCondition <span class="hl sym">=</span> GREEN_WON<span class="hl sym">;</span>
+				<span class="hl kwa">break</span><span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl slc">// Ball dispension/Hoop3/Hoop2/Ball Query</span>
+		<span class="hl kwa">default</span><span class="hl sym">:</span>
+			<span class="hl kwa">switch</span><span class="hl sym">(</span>response<span class="hl sym">) {</span>
+				<span class="hl slc">// If requested command forwarded, start querying status of last request</span>
+				<span class="hl kwa">case</span> REQUEST_PENDING<span class="hl sym">:</span>
+					sendQueue<span class="hl sym">[</span>nextSendIndex<span class="hl sym">] =</span> QUERY_STATE<span class="hl sym">;</span>
+				<span class="hl kwa">break</span><span class="hl sym">;</span>
+				<span class="hl slc">// If requested command not forwarded, send it again</span>
+				<span class="hl kwa">case</span> REQUEST_FAILED<span class="hl sym">:</span>
+					<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Request failed!!!</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+					sendQueue<span class="hl sym">[</span>nextSendIndex<span class="hl sym">] =</span> requestedCommand<span class="hl sym">;</span>
+				<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+				<span class="hl slc">// Query of dispenser pending, query again</span>
+				<span class="hl kwa">case</span> QUERY_DISPENSE_PENDING<span class="hl sym">+</span><span class="hl num">0</span><span class="hl sym">:</span>
+				<span class="hl kwa">case</span> QUERY_DISPENSE_PENDING<span class="hl sym">+</span><span class="hl num">4</span><span class="hl sym">:</span>
+				<span class="hl kwa">case</span> QUERY_DISPENSE_PENDING<span class="hl sym">+</span><span class="hl num">8</span><span class="hl sym">:</span>
+				<span class="hl kwa">case</span> QUERY_DISPENSE_PENDING<span class="hl sym">+</span><span class="hl num">12</span><span class="hl sym">:</span>
+					<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Query of dispenser pending, querying again</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+					sendQueue<span class="hl sym">[</span>nextSendIndex<span class="hl sym">] =</span> requestedCommand<span class="hl sym">;</span>
+				<span class="hl slc">// Dispenser xx has yy balls available</span>
+				<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+				<span class="hl slc">// Received number of balls in dispenser</span>
+				<span class="hl kwa">case</span> DISPENSE_NUMBER<span class="hl sym">+</span><span class="hl num">0</span><span class="hl sym">+</span><span class="hl num">0</span><span class="hl sym">:</span>
+				<span class="hl kwa">case</span> DISPENSE_NUMBER<span class="hl sym">+</span><span class="hl num">0</span><span class="hl sym">+</span><span class="hl num">1</span><span class="hl sym">:</span>
+				<span class="hl kwa">case</span> DISPENSE_NUMBER<span class="hl sym">+</span><span class="hl num">0</span><span class="hl sym">+</span><span class="hl num">2</span><span class="hl sym">:</span>
+				<span class="hl kwa">case</span> DISPENSE_NUMBER<span class="hl sym">+</span><span class="hl num">0</span><span class="hl sym">+</span><span class="hl num">3</span><span class="hl sym">:;</span>
+					game_info<span class="hl sym">-&gt;</span>availableBalls<span class="hl sym">[</span><span class="hl num">0</span><span class="hl sym">] =</span> response<span class="hl sym">%</span><span class="hl num">4</span><span class="hl sym">;</span>
+					<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Dispenser 0 has %d balls available</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">,</span> game_info<span class="hl sym">-&gt;</span>availableBalls<span class="hl sym">[</span><span class="hl num">0</span><span class="hl sym">]);</span>
+					game_info<span class="hl sym">-&gt;</span>queryComplete <span class="hl sym">=</span> <span class="hl num">1</span><span class="hl sym">;</span>
+				<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+				<span class="hl kwa">case</span> DISPENSE_NUMBER<span class="hl sym">+</span><span class="hl num">4</span><span class="hl sym">+</span><span class="hl num">0</span><span class="hl sym">:</span>
+				<span class="hl kwa">case</span> DISPENSE_NUMBER<span class="hl sym">+</span><span class="hl num">4</span><span class="hl sym">+</span><span class="hl num">1</span><span class="hl sym">:</span>
+				<span class="hl kwa">case</span> DISPENSE_NUMBER<span class="hl sym">+</span><span class="hl num">4</span><span class="hl sym">+</span><span class="hl num">2</span><span class="hl sym">:</span>
+				<span class="hl kwa">case</span> DISPENSE_NUMBER<span class="hl sym">+</span><span class="hl num">4</span><span class="hl sym">+</span><span class="hl num">3</span><span class="hl sym">:</span>
+					game_info<span class="hl sym">-&gt;</span>availableBalls<span class="hl sym">[</span><span class="hl num">1</span><span class="hl sym">] =</span> response<span class="hl sym">%</span><span class="hl num">4</span><span class="hl sym">;</span>
+					<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Dispenser 1 has %d balls available</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">,</span> game_info<span class="hl sym">-&gt;</span>availableBalls<span class="hl sym">[</span><span class="hl num">1</span><span class="hl sym">]);</span>
+					game_info<span class="hl sym">-&gt;</span>queryComplete <span class="hl sym">=</span> <span class="hl num">1</span><span class="hl sym">;</span>
+				<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+				<span class="hl kwa">case</span> DISPENSE_NUMBER<span class="hl sym">+</span><span class="hl num">8</span><span class="hl sym">+</span><span class="hl num">0</span><span class="hl sym">:</span>
+				<span class="hl kwa">case</span> DISPENSE_NUMBER<span class="hl sym">+</span><span class="hl num">8</span><span class="hl sym">+</span><span class="hl num">1</span><span class="hl sym">:</span>
+				<span class="hl kwa">case</span> DISPENSE_NUMBER<span class="hl sym">+</span><span class="hl num">8</span><span class="hl sym">+</span><span class="hl num">2</span><span class="hl sym">:</span>
+				<span class="hl kwa">case</span> DISPENSE_NUMBER<span class="hl sym">+</span><span class="hl num">8</span><span class="hl sym">+</span><span class="hl num">3</span><span class="hl sym">:</span>
+					game_info<span class="hl sym">-&gt;</span>availableBalls<span class="hl sym">[</span><span class="hl num">2</span><span class="hl sym">] =</span> response<span class="hl sym">%</span><span class="hl num">4</span><span class="hl sym">;</span>
+					<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Dispenser 2 has %d balls available</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">,</span> game_info<span class="hl sym">-&gt;</span>availableBalls<span class="hl sym">[</span><span class="hl num">2</span><span class="hl sym">]);</span>
+					game_info<span class="hl sym">-&gt;</span>queryComplete <span class="hl sym">=</span> <span class="hl num">1</span><span class="hl sym">;</span>
+				<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+				<span class="hl kwa">case</span> DISPENSE_NUMBER<span class="hl sym">+</span><span class="hl num">12</span><span class="hl sym">+</span><span class="hl num">0</span><span class="hl sym">:</span>
+				<span class="hl kwa">case</span> DISPENSE_NUMBER<span class="hl sym">+</span><span class="hl num">12</span><span class="hl sym">+</span><span class="hl num">1</span><span class="hl sym">:</span>
+				<span class="hl kwa">case</span> DISPENSE_NUMBER<span class="hl sym">+</span><span class="hl num">12</span><span class="hl sym">+</span><span class="hl num">2</span><span class="hl sym">:</span>
+				<span class="hl kwa">case</span> DISPENSE_NUMBER<span class="hl sym">+</span><span class="hl num">12</span><span class="hl sym">+</span><span class="hl num">3</span><span class="hl sym">:</span>
+					game_info<span class="hl sym">-&gt;</span>availableBalls<span class="hl sym">[</span><span class="hl num">3</span><span class="hl sym">] =</span> response<span class="hl sym">%</span><span class="hl num">4</span><span class="hl sym">;</span>
+					<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Dispenser 3 has %d balls available</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">,</span> game_info<span class="hl sym">-&gt;</span>availableBalls<span class="hl sym">[</span><span class="hl num">3</span><span class="hl sym">]);</span>
+					game_info<span class="hl sym">-&gt;</span>queryComplete <span class="hl sym">=</span> <span class="hl num">1</span><span class="hl sym">;</span>
+				<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+				<span class="hl kwa">default</span><span class="hl sym">:</span>
+					<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Unexpected response %x to command %x</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">,</span> response<span class="hl sym">,</span> sendQueue<span class="hl sym">[</span>currSendIndex<span class="hl sym">]);</span>
+				<span class="hl kwa">break</span><span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+			<span class="hl kwa">break</span><span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+
+<span class="hl sym">}</span>
+</pre>
+</body>
+</html>
+<!--HTML generated by highlight 2.13, http://www.andre-simon.de/-->

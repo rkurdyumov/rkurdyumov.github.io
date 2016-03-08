@@ -1,0 +1,647 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<title>strategy.c</title>
+<link rel="stylesheet" type="text/css" href="highlight.css">
+</head>
+<body class="hl">
+<pre class="hl"><span class="hl com">/**************************************************************************</span>
+<span class="hl com"></span>
+<span class="hl com">Strategy Module</span>
+<span class="hl com"></span>
+<span class="hl com">**************************************************************************/</span>
+
+<span class="hl com">/*---------------------------- Include Files ----------------------------*/</span>
+<span class="hl dir">#include &lt;stdio.h&gt;</span>
+<span class="hl dir">#include &lt;stdlib.h&gt;</span>
+<span class="hl dir">#include &lt;timers12.h&gt;</span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;PWM.h&quot;</span><span class="hl dir"></span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;ADS12.h&quot;</span><span class="hl dir"></span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;game.h&quot;</span><span class="hl dir"></span>
+
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;strategy.h&quot;</span><span class="hl dir"></span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;beacon.h&quot;</span><span class="hl dir"></span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;drive_motor.h&quot;</span><span class="hl dir"></span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;lift_motor.h&quot;</span><span class="hl dir"></span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;SPI.h&quot;</span><span class="hl dir"></span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;switch.h&quot;</span><span class="hl dir"></span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;ultrasonic.h&quot;</span><span class="hl dir"></span>
+
+<span class="hl com">/*--------------------------- Module Defines ----------------------------*/</span>
+<span class="hl dir">#define BALL_WAIT_TIME	2050</span>
+<span class="hl dir">#define QUERY_TIME_30S	35000</span>
+<span class="hl dir">#define DISPENSER_Y		27</span>
+<span class="hl dir">#define DISPENSER_X		19</span>
+<span class="hl dir">#define DISPENSER_Y_HOOP  23</span>
+<span class="hl dir">#define BEACON_ERROR 	20</span> <span class="hl slc">//us</span>
+<span class="hl dir"></span><span class="hl dir">#define L_DRIVE_SPEED	77</span>
+<span class="hl dir">#define R_DRIVE_SPEED	75</span>
+<span class="hl dir">#define L_HOOP_FORWARD 50</span>
+<span class="hl dir">#define R_HOOP_FORWARD 50</span>
+<span class="hl dir">#define L_HOOP_REVERSE 53</span>
+<span class="hl dir">#define R_HOOP_REVERSE 50</span>
+<span class="hl dir">#define HOOP_DIST			    41</span>
+<span class="hl dir">#define DEADZONE			     5</span>
+<span class="hl dir">#define SATURATION		    40</span>
+<span class="hl dir">#define CONTROL_DISTANCE  40</span>
+<span class="hl dir">#define HIGH_TIME_ERROR   10</span>
+
+<span class="hl com">/*---------------------------- Module Types -----------------------------*/</span>
+<span class="hl com">/*-------------------------- Module Variables ---------------------------*/</span>
+<span class="hl kwb">unsigned char</span> gameState<span class="hl sym">;</span>
+game_state_t currentState<span class="hl sym">,</span> nextState<span class="hl sym">;</span>
+game_info_s <span class="hl sym">*</span>gameinfo<span class="hl sym">;</span>
+<span class="hl com">/*-------------------------- Module Functions ---------------------------*/</span>
+game_state_t <span class="hl kwd">HandleRunningGame</span><span class="hl sym">(</span>game_state_t current_state<span class="hl sym">);</span>
+<span class="hl kwb">unsigned char</span> <span class="hl kwd">ChooseNextDispenser</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">);</span>
+<span class="hl kwb">void</span> <span class="hl kwd">ReInitializeGame</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">);</span>
+<span class="hl com">/*----------------------------- Module Code -----------------------------*/</span>
+
+<span class="hl kwb">void</span> <span class="hl kwd">DriveControlOn</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">) {</span>
+
+  <span class="hl kwa">if</span><span class="hl sym">(</span><span class="hl kwd">CheckBeaconDetected</span><span class="hl sym">(</span>RIGHT<span class="hl sym">) ==</span> NO_BEACON<span class="hl sym">)  {</span>
+    <span class="hl kwd">MotorForward</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> L_DRIVE_SPEED <span class="hl sym">-</span> <span class="hl num">5</span><span class="hl sym">);</span>
+    <span class="hl kwd">MotorForward</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> R_DRIVE_SPEED <span class="hl sym">+</span> <span class="hl num">20</span><span class="hl sym">);</span>
+  <span class="hl sym">}</span>
+  <span class="hl kwa">else if</span><span class="hl sym">(</span><span class="hl kwd">CheckBeaconDetected</span><span class="hl sym">(</span>LEFT<span class="hl sym">) ==</span> NO_BEACON<span class="hl sym">)  {</span>
+    <span class="hl kwd">MotorForward</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> L_DRIVE_SPEED <span class="hl sym">+</span> <span class="hl num">20</span><span class="hl sym">);</span>
+    <span class="hl kwd">MotorForward</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> R_DRIVE_SPEED <span class="hl sym">-</span> <span class="hl num">5</span><span class="hl sym">);</span>
+  <span class="hl sym">}</span>
+  <span class="hl kwa">else</span> <span class="hl sym">{</span>
+    <span class="hl kwd">MotorForward</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> L_DRIVE_SPEED<span class="hl sym">);</span>
+    <span class="hl kwd">MotorForward</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> R_DRIVE_SPEED<span class="hl sym">);</span>
+  <span class="hl sym">}</span>
+   <span class="hl com">/*</span>
+<span class="hl com">  if((ReturnHighTime(RIGHT) &gt; ReturnHighTime(LEFT) + DEADZONE) &amp;&amp; (ReturnHighTime(RIGHT) &lt; ReturnHighTime(LEFT) + SATURATION)) {</span>
+<span class="hl com">  	MotorForward(LEFT_DRIVE, L_DRIVE_SPEED  + (ReturnHighTime(RIGHT) - ReturnHighTime(LEFT))/10);</span>
+<span class="hl com">  	MotorForward(RIGHT_DRIVE, R_DRIVE_SPEED);</span>
+<span class="hl com">  }</span>
+<span class="hl com">  else if((ReturnHighTime(LEFT) &gt; ReturnHighTime(RIGHT) + DEADZONE) &amp;&amp; (ReturnHighTime(LEFT) &lt; ReturnHighTime(RIGHT) + SATURATION)) {</span>
+<span class="hl com">  	MotorForward(RIGHT_DRIVE, R_DRIVE_SPEED  + (ReturnHighTime(LEFT) - ReturnHighTime(RIGHT))/10);</span>
+<span class="hl com">  	MotorForward(LEFT_DRIVE, L_DRIVE_SPEED);</span>
+<span class="hl com">  }</span>
+<span class="hl com">  else if((ReturnHighTime(RIGHT) &gt; ReturnHighTime(LEFT) + SATURATION)) {</span>
+<span class="hl com">    MotorForward(LEFT_DRIVE, L_DRIVE_SPEED + 2);</span>
+<span class="hl com">    MotorForward(RIGHT_DRIVE, RIGHT_DRIVE);</span>
+<span class="hl com">  }</span>
+<span class="hl com">  else if((ReturnHighTime(LEFT) &gt; ReturnHighTime(RIGHT) + SATURATION)) {</span>
+<span class="hl com">    MotorForward(LEFT_DRIVE, L_DRIVE_SPEED);</span>
+<span class="hl com">    MotorForward(RIGHT_DRIVE, RIGHT_DRIVE + 2);</span>
+<span class="hl com">  }</span>
+<span class="hl com">  else {</span>
+<span class="hl com">  	MotorForward(LEFT_DRIVE, L_DRIVE_SPEED);</span>
+<span class="hl com">   MotorForward(RIGHT_DRIVE, R_DRIVE_SPEED);</span>
+<span class="hl com">  }</span>
+<span class="hl com">  */</span>
+<span class="hl sym">}</span>
+
+<span class="hl kwb">void</span> <span class="hl kwd">InitStrategy</span><span class="hl sym">(</span>game_info_s <span class="hl sym">*</span>gameInfo<span class="hl sym">) {</span>
+  currentState <span class="hl sym">=</span> DRIVING_TO_DISPENSER_START<span class="hl sym">;</span>
+  gameinfo <span class="hl sym">=</span> gameInfo<span class="hl sym">;</span>
+  <span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Strategy initialized</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+<span class="hl sym">}</span>
+
+<span class="hl kwb">unsigned char</span> <span class="hl kwd">ChooseNextDispenser</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">) {</span>
+
+	<span class="hl kwa">switch</span><span class="hl sym">(</span>gameinfo<span class="hl sym">-&gt;</span>teamColor<span class="hl sym">) {</span>
+		<span class="hl kwa">case</span> RED_TEAM<span class="hl sym">:</span> <span class="hl kwa">return</span> <span class="hl num">1</span><span class="hl sym">;</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+		<span class="hl kwa">case</span> GREEN_TEAM<span class="hl sym">:</span> <span class="hl kwa">return</span> <span class="hl num">2</span><span class="hl sym">;</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+<span class="hl sym">}</span>
+
+<span class="hl kwb">void</span> <span class="hl kwd">ReInitializeGame</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">) {</span>
+	<span class="hl kwb">unsigned char</span> i<span class="hl sym">;</span>
+	gameinfo<span class="hl sym">-&gt;</span>currGameCondition <span class="hl sym">=</span> PAUSED<span class="hl sym">;</span>
+	gameinfo<span class="hl sym">-&gt;</span>prevGameCondition <span class="hl sym">=</span> PAUSED<span class="hl sym">;</span>
+	gameinfo<span class="hl sym">-&gt;</span>teamColor <span class="hl sym">=</span> <span class="hl kwd">ReturnColor</span><span class="hl sym">();</span>
+	gameinfo<span class="hl sym">-&gt;</span>ourHoop <span class="hl sym">=</span> HOOP_3<span class="hl sym">;</span>
+	gameinfo<span class="hl sym">-&gt;</span>currDispenser <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	<span class="hl kwa">for</span> <span class="hl sym">(</span>i<span class="hl sym">=</span><span class="hl num">0</span><span class="hl sym">;</span> i <span class="hl sym">&lt;</span> NUM_DISPENSERS<span class="hl sym">;</span> i<span class="hl sym">++) {</span>
+		gameinfo<span class="hl sym">-&gt;</span>ballDispensed<span class="hl sym">[</span>i<span class="hl sym">] =</span> <span class="hl num">1</span><span class="hl sym">;</span>
+		gameinfo<span class="hl sym">-&gt;</span>availableBalls<span class="hl sym">[</span>i<span class="hl sym">] =</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+	gameinfo<span class="hl sym">-&gt;</span>querySent <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	gameinfo<span class="hl sym">-&gt;</span>queryComplete <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	gameinfo<span class="hl sym">-&gt;</span>initialQuery <span class="hl sym">=</span> <span class="hl num">1</span><span class="hl sym">;</span>
+	gameinfo<span class="hl sym">-&gt;</span>remainingBalls <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	currentState <span class="hl sym">=</span> DRIVING_TO_DISPENSER_START<span class="hl sym">;</span>
+<span class="hl sym">}</span>
+
+<span class="hl kwb">void</span> <span class="hl kwd">UpdateStrategy</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">) {</span>
+
+  game_condition_t currCondition<span class="hl sym">;</span>
+  currCondition <span class="hl sym">=</span> gameinfo<span class="hl sym">-&gt;</span>currGameCondition<span class="hl sym">;</span>
+
+  <span class="hl slc">//printf(&quot;current game condition: %d \r\n&quot;, gameinfo-&gt;currGameCondition);</span>
+	<span class="hl kwa">switch</span><span class="hl sym">(</span>currCondition<span class="hl sym">) {</span>
+
+		<span class="hl kwa">case</span><span class="hl sym">(</span>PAUSED<span class="hl sym">):</span>
+			<span class="hl slc">// Reset currentState and prepare to start game again</span>
+			<span class="hl kwa">if</span><span class="hl sym">(</span>gameinfo<span class="hl sym">-&gt;</span>prevGameCondition <span class="hl sym">==</span> RUNNING<span class="hl sym">) {</span> <span class="hl slc">// game just ended</span>
+				<span class="hl kwd">ReInitializeGame</span><span class="hl sym">();</span>
+			<span class="hl sym">}</span>
+			<span class="hl kwa">else</span> <span class="hl sym">{</span>
+				<span class="hl slc">// Do nothing (already paused or the game ended)</span>
+			<span class="hl sym">}</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span><span class="hl sym">(</span>RED_WON<span class="hl sym">):</span>
+			<span class="hl kwa">if</span><span class="hl sym">(</span>gameinfo<span class="hl sym">-&gt;</span>prevGameCondition <span class="hl sym">==</span> RUNNING<span class="hl sym">) {</span> <span class="hl slc">// just won</span>
+				<span class="hl kwd">StopDriveMotors</span><span class="hl sym">();</span>
+			  <span class="hl kwd">LiftMotorStop</span><span class="hl sym">();</span>
+				<span class="hl kwa">if</span><span class="hl sym">(</span>gameinfo<span class="hl sym">-&gt;</span>teamColor <span class="hl sym">==</span> RED_TEAM<span class="hl sym">)</span>
+					<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;We won!</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+				<span class="hl kwa">else</span>
+					<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;We lost!</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+			<span class="hl sym">}</span>
+			<span class="hl kwa">else</span> <span class="hl sym">{</span>
+				<span class="hl slc">// Still in RED WON, executing winning procedure</span>
+			<span class="hl sym">}</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span><span class="hl sym">(</span>GREEN_WON<span class="hl sym">):</span>
+			<span class="hl kwa">if</span><span class="hl sym">(</span>gameinfo<span class="hl sym">-&gt;</span>prevGameCondition <span class="hl sym">==</span> RUNNING<span class="hl sym">) {</span> <span class="hl slc">// just won</span>
+				<span class="hl kwd">StopDriveMotors</span><span class="hl sym">();</span>
+			  <span class="hl kwd">LiftMotorStop</span><span class="hl sym">();</span>
+				<span class="hl kwa">if</span><span class="hl sym">(</span>gameinfo<span class="hl sym">-&gt;</span>teamColor <span class="hl sym">==</span> GREEN_TEAM<span class="hl sym">)</span>
+					<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;We won!</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+				<span class="hl kwa">else</span>
+					<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;We lost!</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+			<span class="hl sym">}</span>
+			<span class="hl kwa">else</span> <span class="hl sym">{</span>
+				<span class="hl slc">// Still in GREEN WON, executing winning procedure</span>
+			<span class="hl sym">}</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span><span class="hl sym">(</span>RUNNING<span class="hl sym">):</span>
+			<span class="hl kwa">if</span><span class="hl sym">(</span>gameinfo<span class="hl sym">-&gt;</span>prevGameCondition <span class="hl sym">!=</span> RUNNING<span class="hl sym">) {</span> <span class="hl slc">// just started game</span>
+				<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Game now running</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+			  <span class="hl kwd">MotorForward</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> L_DRIVE_SPEED<span class="hl sym">);</span>
+        <span class="hl kwd">MotorForward</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> R_DRIVE_SPEED<span class="hl sym">);</span>
+				currentState <span class="hl sym">=</span> DRIVING_TO_DISPENSER_START<span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+			<span class="hl slc">//printf(&quot;current state: %d \r\n&quot;, currentState);</span>
+			nextState <span class="hl sym">=</span>	<span class="hl kwd">HandleRunningGame</span><span class="hl sym">(</span>currentState<span class="hl sym">);</span>
+			currentState <span class="hl sym">=</span> nextState<span class="hl sym">;</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+
+	<span class="hl slc">// Update the previous gameCondition</span>
+	gameinfo<span class="hl sym">-&gt;</span>prevGameCondition <span class="hl sym">=</span> currCondition<span class="hl sym">;</span>
+<span class="hl sym">}</span>
+
+game_state_t <span class="hl kwd">HandleRunningGame</span><span class="hl sym">(</span>game_state_t current_state<span class="hl sym">) {</span>
+
+	game_state_t curr_state<span class="hl sym">;</span>
+	game_state_t next_state<span class="hl sym">;</span>
+	curr_state <span class="hl sym">=</span> current_state<span class="hl sym">;</span>
+
+	<span class="hl kwa">switch</span><span class="hl sym">(</span>curr_state<span class="hl sym">) {</span>
+
+		<span class="hl kwa">case</span> DRIVING_TO_DISPENSER_START<span class="hl sym">:</span>
+			<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;distance: %d</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">,</span> <span class="hl kwd">ReturnUltrasonicDistance</span><span class="hl sym">());</span>
+			<span class="hl kwa">if</span><span class="hl sym">(</span><span class="hl kwd">ReturnUltrasonicDistance</span><span class="hl sym">() &lt;</span> DISPENSER_Y<span class="hl sym">) {</span>
+				<span class="hl kwd">StopDriveMotors</span><span class="hl sym">();</span>
+				<span class="hl kwd">RotateCCW</span><span class="hl sym">();</span>
+				<span class="hl kwd">AddNewCommand</span><span class="hl sym">(</span>HOOP_3<span class="hl sym">);</span>
+				<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Got to start dispenser, aligning with far dispenser</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+				next_state <span class="hl sym">=</span> ROTATING_TO_ALIGN_DISPENSER_FAR<span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+			<span class="hl kwa">else</span>
+				next_state <span class="hl sym">=</span> DRIVING_TO_DISPENSER_START<span class="hl sym">;</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span> ROTATING_TO_ALIGN_DISPENSER_FAR<span class="hl sym">:</span>
+			<span class="hl kwa">switch</span><span class="hl sym">(</span>gameinfo<span class="hl sym">-&gt;</span>teamColor<span class="hl sym">) {</span>
+				<span class="hl kwa">case</span> RED_TEAM<span class="hl sym">:</span>
+					<span class="hl kwa">if</span><span class="hl sym">((</span><span class="hl kwd">CheckBeaconDetected</span><span class="hl sym">(</span>LEFT<span class="hl sym">) ==</span> DISPENSER_0<span class="hl sym">)) {</span>
+						<span class="hl kwd">StopDriveMotors</span><span class="hl sym">();</span>
+					  gameinfo<span class="hl sym">-&gt;</span>currDispenser <span class="hl sym">=</span> DISPENSER_0<span class="hl sym">;</span>
+						<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Aligned with far dispenser, going to query dispensers</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+						next_state <span class="hl sym">=</span> QUERYING_DISPENSERS<span class="hl sym">;</span>
+					<span class="hl sym">}</span>
+					<span class="hl kwa">else</span>
+						next_state <span class="hl sym">=</span> ROTATING_TO_ALIGN_DISPENSER_FAR<span class="hl sym">;</span>
+				<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+				<span class="hl kwa">case</span> GREEN_TEAM<span class="hl sym">:</span>
+					<span class="hl kwa">if</span><span class="hl sym">((</span><span class="hl kwd">CheckBeaconDetected</span><span class="hl sym">(</span>LEFT<span class="hl sym">) ==</span> DISPENSER_3<span class="hl sym">)) {</span>
+						<span class="hl kwd">StopDriveMotors</span><span class="hl sym">();</span>
+					  gameinfo<span class="hl sym">-&gt;</span>currDispenser <span class="hl sym">=</span> DISPENSER_0<span class="hl sym">;</span>
+						<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Aligned with far dispenser, going to query dispensers</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+						next_state <span class="hl sym">=</span> QUERYING_DISPENSERS<span class="hl sym">;</span>
+					<span class="hl sym">}</span>
+					<span class="hl kwa">else</span>
+						next_state <span class="hl sym">=</span> ROTATING_TO_ALIGN_DISPENSER_FAR<span class="hl sym">;</span>
+				<span class="hl kwa">break</span><span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span> QUERYING_DISPENSERS<span class="hl sym">:</span>
+      <span class="hl slc">//printf(&quot;querying currDisp %d querySent: %d queryComplete:%d \r\n&quot;, gameinfo-&gt;currDispenser, gameinfo-&gt;querySent, gameinfo-&gt;queryComplete);</span>
+
+			<span class="hl slc">// Sending first command (initial query)</span>
+			<span class="hl kwa">if</span><span class="hl sym">((</span>gameinfo<span class="hl sym">-&gt;</span>currDispenser <span class="hl sym">==</span> <span class="hl num">0</span><span class="hl sym">) &amp;&amp; (</span>gameinfo<span class="hl sym">-&gt;</span>querySent <span class="hl sym">==</span> <span class="hl num">0</span><span class="hl sym">) &amp;&amp; (</span>gameinfo<span class="hl sym">-&gt;</span>initialQuery <span class="hl sym">==</span> <span class="hl num">1</span><span class="hl sym">)) {</span>
+				<span class="hl kwd">AddNewCommand</span><span class="hl sym">(</span>QUERY_DISPENSE <span class="hl sym">+</span> gameinfo<span class="hl sym">-&gt;</span>currDispenser<span class="hl sym">);</span>
+				gameinfo<span class="hl sym">-&gt;</span>querySent <span class="hl sym">=</span> <span class="hl num">1</span><span class="hl sym">;</span>
+				<span class="hl kwd">TMRS12_InitTimer</span><span class="hl sym">(</span>QUERY_TIMER_30S<span class="hl sym">,</span> QUERY_TIME_30S<span class="hl sym">);</span>
+				<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Sent first query</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+				next_state <span class="hl sym">=</span> QUERYING_DISPENSERS<span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+			<span class="hl slc">// Sending first command, not initial  query, wait for 30s ball respawn</span>
+			<span class="hl kwa">else if</span><span class="hl sym">((</span>gameinfo<span class="hl sym">-&gt;</span>currDispenser <span class="hl sym">==</span> <span class="hl num">0</span><span class="hl sym">) &amp;&amp; (</span>gameinfo<span class="hl sym">-&gt;</span>querySent <span class="hl sym">==</span> <span class="hl num">0</span><span class="hl sym">) &amp;&amp; (</span><span class="hl kwd">TMRS12_IsTimerExpired</span><span class="hl sym">(</span>QUERY_TIMER_30S<span class="hl sym">) ==</span> TMRS12_EXPIRED<span class="hl sym">)) {</span>
+				<span class="hl kwd">TMRS12_ClearTimerExpired</span><span class="hl sym">(</span>QUERY_TIMER_30S<span class="hl sym">);</span>
+				<span class="hl kwd">AddNewCommand</span><span class="hl sym">(</span>QUERY_DISPENSE <span class="hl sym">+</span> gameinfo<span class="hl sym">-&gt;</span>currDispenser<span class="hl sym">);</span>
+				gameinfo<span class="hl sym">-&gt;</span>querySent <span class="hl sym">=</span> <span class="hl num">1</span><span class="hl sym">;</span>
+				<span class="hl kwd">TMRS12_InitTimer</span><span class="hl sym">(</span>QUERY_TIMER_30S<span class="hl sym">,</span> QUERY_TIME_30S<span class="hl sym">);</span> <span class="hl slc">// Start next 30s query timer</span>
+				<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Sent first query</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+				next_state <span class="hl sym">=</span> QUERYING_DISPENSERS<span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+			<span class="hl slc">// Got query back, so send next one</span>
+			<span class="hl kwa">else if</span><span class="hl sym">((</span>gameinfo<span class="hl sym">-&gt;</span>currDispenser <span class="hl sym">&lt;</span> <span class="hl num">3</span><span class="hl sym">) &amp;&amp; (</span>gameinfo<span class="hl sym">-&gt;</span>queryComplete <span class="hl sym">==</span> <span class="hl num">1</span><span class="hl sym">)) {</span>
+				gameinfo<span class="hl sym">-&gt;</span>queryComplete <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span> <span class="hl slc">// get ready for next query</span>
+				gameinfo<span class="hl sym">-&gt;</span>currDispenser<span class="hl sym">++;</span>
+				<span class="hl kwd">AddNewCommand</span><span class="hl sym">(</span>QUERY_DISPENSE <span class="hl sym">+</span> gameinfo<span class="hl sym">-&gt;</span>currDispenser<span class="hl sym">);</span>
+				gameinfo<span class="hl sym">-&gt;</span>querySent <span class="hl sym">=</span> <span class="hl num">1</span><span class="hl sym">;</span>
+				next_state <span class="hl sym">=</span> QUERYING_DISPENSERS<span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+			<span class="hl slc">// Last query, do the next action</span>
+			<span class="hl kwa">else if</span><span class="hl sym">((</span>gameinfo<span class="hl sym">-&gt;</span>currDispenser <span class="hl sym">==</span> <span class="hl num">3</span><span class="hl sym">) &amp;&amp; (</span>gameinfo<span class="hl sym">-&gt;</span>queryComplete <span class="hl sym">==</span> <span class="hl num">1</span><span class="hl sym">)) {</span>
+				gameinfo<span class="hl sym">-&gt;</span>queryComplete <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span> <span class="hl slc">// get ready for next query</span>
+				gameinfo<span class="hl sym">-&gt;</span>querySent <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span> <span class="hl slc">// Get ready to query for ball dispension</span>
+				gameinfo<span class="hl sym">-&gt;</span>currDispenser <span class="hl sym">=</span> <span class="hl kwd">ChooseNextDispenser</span><span class="hl sym">();</span> <span class="hl slc">// Figure out which dispenser we're at</span>
+				gameinfo<span class="hl sym">-&gt;</span>remainingBalls <span class="hl sym">=</span> gameinfo<span class="hl sym">-&gt;</span>availableBalls<span class="hl sym">[</span>gameinfo<span class="hl sym">-&gt;</span>currDispenser<span class="hl sym">];</span> <span class="hl slc">// Get ready to request balls</span>
+				<span class="hl kwa">switch</span><span class="hl sym">(</span>gameinfo<span class="hl sym">-&gt;</span>teamColor<span class="hl sym">) {</span>
+				  <span class="hl kwa">case</span> RED_TEAM<span class="hl sym">:</span>
+				    gameinfo<span class="hl sym">-&gt;</span>availableBalls<span class="hl sym">[</span>DISPENSER_0<span class="hl sym">] =</span> <span class="hl num">3</span><span class="hl sym">;</span>
+				  <span class="hl kwa">break</span><span class="hl sym">;</span>
+
+				  <span class="hl kwa">case</span> GREEN_TEAM<span class="hl sym">:</span>
+				    gameinfo<span class="hl sym">-&gt;</span>availableBalls<span class="hl sym">[</span>DISPENSER_3<span class="hl sym">] =</span> <span class="hl num">3</span><span class="hl sym">;</span>
+				  <span class="hl kwa">break</span><span class="hl sym">;</span>
+				<span class="hl sym">}</span>
+				<span class="hl kwa">if</span><span class="hl sym">(</span>gameinfo<span class="hl sym">-&gt;</span>initialQuery <span class="hl sym">==</span> <span class="hl num">1</span><span class="hl sym">) {</span>
+					gameinfo<span class="hl sym">-&gt;</span>initialQuery <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span> <span class="hl slc">// done with initial query procedure</span>
+				<span class="hl sym">}</span>
+				<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Sent last query, going to collect balls</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+				next_state <span class="hl sym">=</span> COLLECTING_BALLS<span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+			<span class="hl kwa">else</span>
+				next_state <span class="hl sym">=</span> QUERYING_DISPENSERS<span class="hl sym">;</span> <span class="hl slc">// waiting for a response or timer expiration</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span> COLLECTING_BALLS<span class="hl sym">:</span>
+		  <span class="hl slc">//printf(&quot;currDispenser: %d remaining balls: %d query sent:%d \r\n&quot;, gameinfo-&gt;currDispenser, gameinfo-&gt;remainingBalls, gameinfo-&gt;querySent);</span>
+			<span class="hl kwa">if</span><span class="hl sym">((</span>gameinfo<span class="hl sym">-&gt;</span>remainingBalls <span class="hl sym">==</span> <span class="hl num">3</span><span class="hl sym">) &amp;&amp; (</span>gameinfo<span class="hl sym">-&gt;</span>querySent <span class="hl sym">==</span> <span class="hl num">0</span><span class="hl sym">)) {</span>
+				<span class="hl kwd">AddNewCommand</span><span class="hl sym">(</span>DISPENSE_BALL <span class="hl sym">+</span> gameinfo<span class="hl sym">-&gt;</span>currDispenser<span class="hl sym">);</span> <span class="hl slc">// request ball</span>
+				gameinfo<span class="hl sym">-&gt;</span>remainingBalls<span class="hl sym">--;</span>
+				<span class="hl kwd">TMRS12_InitTimer</span><span class="hl sym">(</span>BALL_TIMER<span class="hl sym">,</span> BALL_WAIT_TIME<span class="hl sym">);</span>
+				gameinfo<span class="hl sym">-&gt;</span>querySent <span class="hl sym">=</span> <span class="hl num">1</span><span class="hl sym">;</span>
+				<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Requesting first ball dispension</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+				next_state <span class="hl sym">=</span> COLLECTING_BALLS<span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+			<span class="hl slc">// Got ball, send next command</span>
+			<span class="hl kwa">else if</span><span class="hl sym">((</span>gameinfo<span class="hl sym">-&gt;</span>remainingBalls <span class="hl sym">&gt;</span> <span class="hl num">0</span><span class="hl sym">) &amp;&amp; (</span>gameinfo<span class="hl sym">-&gt;</span>ballDispensed<span class="hl sym">[</span>gameinfo<span class="hl sym">-&gt;</span>currDispenser<span class="hl sym">] ==</span> <span class="hl num">1</span><span class="hl sym">) &amp;&amp; (</span><span class="hl kwd">TMRS12_IsTimerExpired</span><span class="hl sym">(</span>BALL_TIMER<span class="hl sym">) ==</span> TMRS12_EXPIRED<span class="hl sym">)) {</span>
+				<span class="hl kwd">TMRS12_ClearTimerExpired</span><span class="hl sym">(</span>BALL_TIMER<span class="hl sym">);</span>
+				gameinfo<span class="hl sym">-&gt;</span>ballDispensed<span class="hl sym">[</span>gameinfo<span class="hl sym">-&gt;</span>currDispenser<span class="hl sym">] =</span> <span class="hl num">0</span><span class="hl sym">;</span> <span class="hl slc">// reset flag</span>
+				gameinfo<span class="hl sym">-&gt;</span>remainingBalls<span class="hl sym">--;</span> <span class="hl slc">// should be = 0 last time through</span>
+				<span class="hl kwd">AddNewCommand</span><span class="hl sym">(</span>DISPENSE_BALL <span class="hl sym">+</span> gameinfo<span class="hl sym">-&gt;</span>currDispenser<span class="hl sym">);</span> <span class="hl slc">// request ball</span>
+				<span class="hl kwd">TMRS12_InitTimer</span><span class="hl sym">(</span>BALL_TIMER<span class="hl sym">,</span> BALL_WAIT_TIME<span class="hl sym">);</span>
+				gameinfo<span class="hl sym">-&gt;</span>querySent <span class="hl sym">=</span> <span class="hl num">1</span><span class="hl sym">;</span>
+				<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Requesting next ball dispension</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+				next_state <span class="hl sym">=</span> COLLECTING_BALLS<span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+			<span class="hl slc">// Got last ball</span>
+			<span class="hl kwa">else if</span><span class="hl sym">((</span>gameinfo<span class="hl sym">-&gt;</span>remainingBalls <span class="hl sym">==</span> <span class="hl num">0</span><span class="hl sym">) &amp;&amp; (</span>gameinfo<span class="hl sym">-&gt;</span>ballDispensed<span class="hl sym">[</span>gameinfo<span class="hl sym">-&gt;</span>currDispenser<span class="hl sym">] ==</span><span class="hl num">1</span><span class="hl sym">) &amp;&amp; (</span><span class="hl kwd">TMRS12_IsTimerExpired</span><span class="hl sym">(</span>BALL_TIMER<span class="hl sym">) ==</span> TMRS12_EXPIRED<span class="hl sym">)) {</span>
+				<span class="hl kwd">TMRS12_ClearTimerExpired</span><span class="hl sym">(</span>BALL_TIMER<span class="hl sym">);</span>
+			  gameinfo<span class="hl sym">-&gt;</span>querySent <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+			  gameinfo<span class="hl sym">-&gt;</span>ballDispensed<span class="hl sym">[</span>gameinfo<span class="hl sym">-&gt;</span>currDispenser<span class="hl sym">] =</span> <span class="hl num">0</span><span class="hl sym">;</span>
+
+				<span class="hl kwa">switch</span><span class="hl sym">(</span>gameinfo<span class="hl sym">-&gt;</span>teamColor<span class="hl sym">) {</span>
+					<span class="hl kwa">case</span> RED_TEAM<span class="hl sym">:</span>
+						<span class="hl kwa">switch</span><span class="hl sym">(</span>gameinfo<span class="hl sym">-&gt;</span>currDispenser<span class="hl sym">) {</span>
+							<span class="hl kwa">case</span> DISPENSER_0<span class="hl sym">:</span>
+								<span class="hl kwd">MotorForward</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> L_DRIVE_SPEED<span class="hl sym">);</span>
+								<span class="hl kwd">MotorForward</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> R_DRIVE_SPEED<span class="hl sym">);</span>
+								<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Got last ball, driving to midline</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+								<span class="hl kwd">TMRS12_InitTimer</span><span class="hl sym">(</span>MIDPOINT_TIMER<span class="hl sym">,</span> <span class="hl num">1250</span><span class="hl sym">);</span>
+								next_state <span class="hl sym">=</span> DRIVING_TO_MIDLINE<span class="hl sym">;</span>
+							<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+							<span class="hl kwa">case</span> DISPENSER_1<span class="hl sym">:</span>
+								<span class="hl kwd">MotorForward</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> L_DRIVE_SPEED<span class="hl sym">);</span>
+								<span class="hl kwd">MotorForward</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> R_DRIVE_SPEED<span class="hl sym">);</span>
+								<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Got last ball, driving to far dispenser</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+								next_state <span class="hl sym">=</span> DRIVING_TO_DISPENSER_FAR<span class="hl sym">;</span>
+							<span class="hl kwa">break</span><span class="hl sym">;</span>
+						<span class="hl sym">}</span>
+					<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+					<span class="hl kwa">case</span> GREEN_TEAM<span class="hl sym">:</span>
+						<span class="hl kwa">switch</span><span class="hl sym">(</span>gameinfo<span class="hl sym">-&gt;</span>currDispenser<span class="hl sym">) {</span>
+							<span class="hl kwa">case</span> DISPENSER_3<span class="hl sym">:</span>
+								<span class="hl kwd">MotorForward</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> L_DRIVE_SPEED<span class="hl sym">);</span>
+								<span class="hl kwd">MotorForward</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> R_DRIVE_SPEED<span class="hl sym">);</span>
+								<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Got last ball, driving to midline</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+								<span class="hl kwd">TMRS12_InitTimer</span><span class="hl sym">(</span>MIDPOINT_TIMER<span class="hl sym">,</span> <span class="hl num">1250</span><span class="hl sym">);</span>
+								next_state <span class="hl sym">=</span> DRIVING_TO_MIDLINE<span class="hl sym">;</span>
+							<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+							<span class="hl kwa">case</span> DISPENSER_2<span class="hl sym">:</span>
+								<span class="hl kwd">MotorForward</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> L_DRIVE_SPEED<span class="hl sym">);</span>
+								<span class="hl kwd">MotorForward</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> R_DRIVE_SPEED<span class="hl sym">);</span>
+								<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Got last ball, driving to far dispenser</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+								next_state <span class="hl sym">=</span> DRIVING_TO_DISPENSER_FAR<span class="hl sym">;</span>
+							<span class="hl kwa">break</span><span class="hl sym">;</span>
+						<span class="hl sym">}</span>
+					<span class="hl kwa">break</span><span class="hl sym">;</span>
+				<span class="hl sym">}</span>
+			<span class="hl sym">}</span>
+			<span class="hl kwa">else</span>
+				next_state <span class="hl sym">=</span> COLLECTING_BALLS<span class="hl sym">;</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+
+		<span class="hl kwa">case</span> DRIVING_TO_DISPENSER_FAR<span class="hl sym">:</span>
+			<span class="hl slc">//printf(&quot;distance: %d \r\n&quot;, ReturnUltrasonicDistance());</span>
+			<span class="hl kwa">if</span><span class="hl sym">(</span><span class="hl kwd">ReturnUltrasonicDistance</span><span class="hl sym">() &gt;</span> CONTROL_DISTANCE<span class="hl sym">) {</span>
+			  <span class="hl kwd">DriveControlOn</span><span class="hl sym">();</span>
+			  next_state <span class="hl sym">=</span> DRIVING_TO_DISPENSER_FAR<span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+			<span class="hl kwa">else if</span><span class="hl sym">((</span><span class="hl kwd">ReturnUltrasonicDistance</span><span class="hl sym">() &lt;=</span> CONTROL_DISTANCE<span class="hl sym">) &amp;&amp; (</span><span class="hl kwd">ReturnUltrasonicDistance</span><span class="hl sym">()&gt;</span> DISPENSER_X<span class="hl sym">)) {</span>
+			  <span class="hl kwd">MotorForward</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> L_DRIVE_SPEED<span class="hl sym">);</span>
+			  <span class="hl kwd">MotorForward</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> R_DRIVE_SPEED<span class="hl sym">);</span>
+			  next_state <span class="hl sym">=</span> DRIVING_TO_DISPENSER_FAR<span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+			<span class="hl kwa">else if</span><span class="hl sym">(</span><span class="hl kwd">ReturnUltrasonicDistance</span><span class="hl sym">() &lt;</span> DISPENSER_X<span class="hl sym">) {</span>
+				<span class="hl kwd">StopDriveMotors</span><span class="hl sym">();</span>
+				<span class="hl kwd">RotateCCW</span><span class="hl sym">();</span>
+				<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Got to far dispenser, rotating to align with close dispenser</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+				next_state <span class="hl sym">=</span> ROTATING_TO_ALIGN_DISPENSER_CLOSE<span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+			<span class="hl kwa">else</span>
+				next_state <span class="hl sym">=</span> DRIVING_TO_DISPENSER_FAR<span class="hl sym">;</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span> ROTATING_TO_ALIGN_DISPENSER_CLOSE<span class="hl sym">:</span>
+			<span class="hl kwa">switch</span><span class="hl sym">(</span>gameinfo<span class="hl sym">-&gt;</span>teamColor<span class="hl sym">) {</span>
+				<span class="hl kwa">case</span> RED_TEAM<span class="hl sym">:</span>
+					<span class="hl kwa">if</span><span class="hl sym">((</span><span class="hl kwd">CheckBeaconDetected</span><span class="hl sym">(</span>LEFT<span class="hl sym">) ==</span> DISPENSER_1<span class="hl sym">)) {</span>
+  					<span class="hl kwd">StopDriveMotors</span><span class="hl sym">();</span>
+  					gameinfo<span class="hl sym">-&gt;</span>remainingBalls <span class="hl sym">=</span> gameinfo<span class="hl sym">-&gt;</span>availableBalls<span class="hl sym">[</span>DISPENSER_0<span class="hl sym">];</span>
+  					gameinfo<span class="hl sym">-&gt;</span>currDispenser <span class="hl sym">=</span> DISPENSER_0<span class="hl sym">;</span>
+  					<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Aligned with close dispenser, going to get balls</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+  					next_state <span class="hl sym">=</span> COLLECTING_BALLS<span class="hl sym">;</span>
+					<span class="hl sym">}</span>
+					<span class="hl kwa">else</span>
+						next_state <span class="hl sym">=</span> ROTATING_TO_ALIGN_DISPENSER_CLOSE<span class="hl sym">;</span>
+				<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+				<span class="hl kwa">case</span> GREEN_TEAM<span class="hl sym">:</span>
+					<span class="hl kwa">if</span><span class="hl sym">((</span><span class="hl kwd">CheckBeaconDetected</span><span class="hl sym">(</span>LEFT<span class="hl sym">) ==</span> DISPENSER_2<span class="hl sym">)) {</span>
+						<span class="hl kwd">StopDriveMotors</span><span class="hl sym">();</span>
+						gameinfo<span class="hl sym">-&gt;</span>remainingBalls <span class="hl sym">=</span> gameinfo<span class="hl sym">-&gt;</span>availableBalls<span class="hl sym">[</span>DISPENSER_3<span class="hl sym">];</span>
+						gameinfo<span class="hl sym">-&gt;</span>currDispenser <span class="hl sym">=</span> DISPENSER_3<span class="hl sym">;</span>
+						<span class="hl kwd">TMRS12_InitTimer</span><span class="hl sym">(</span>BALL_TIMER<span class="hl sym">,</span> BALL_WAIT_TIME<span class="hl sym">);</span>
+						<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Aligned with close dispenser, going to get balls</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+						next_state <span class="hl sym">=</span> COLLECTING_BALLS<span class="hl sym">;</span>
+					<span class="hl sym">}</span>
+					<span class="hl kwa">else</span>
+						next_state <span class="hl sym">=</span> ROTATING_TO_ALIGN_DISPENSER_CLOSE<span class="hl sym">;</span>
+				<span class="hl kwa">break</span><span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span> DRIVING_TO_MIDLINE<span class="hl sym">:</span>
+			<span class="hl kwd">DriveControlOn</span><span class="hl sym">();</span>
+			<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Tape sensor: %d</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">,</span> <span class="hl kwd">CheckTapeSensor</span><span class="hl sym">(</span>MIDDLE<span class="hl sym">));</span>
+			<span class="hl kwa">if</span><span class="hl sym">((</span><span class="hl kwd">CheckTapeSensor</span><span class="hl sym">(</span>MIDDLE<span class="hl sym">) ==</span> <span class="hl num">1</span><span class="hl sym">) &amp;&amp; (</span><span class="hl kwd">TMRS12_IsTimerExpired</span><span class="hl sym">(</span>MIDPOINT_TIMER<span class="hl sym">) ==</span> TMRS12_EXPIRED<span class="hl sym">)) {</span>
+			  <span class="hl kwd">TMRS12_ClearTimerExpired</span><span class="hl sym">(</span>MIDPOINT_TIMER<span class="hl sym">);</span>
+				<span class="hl kwd">StopDriveMotors</span><span class="hl sym">();</span>
+				<span class="hl kwd">RotateCCW</span><span class="hl sym">();</span>
+				<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Got to midline, going to align with hoop</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+				next_state <span class="hl sym">=</span> ROTATING_TO_ALIGN_HOOP<span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+			<span class="hl kwa">else</span>
+				next_state <span class="hl sym">=</span> DRIVING_TO_MIDLINE<span class="hl sym">;</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span> ROTATING_TO_ALIGN_HOOP<span class="hl sym">:</span>
+			<span class="hl kwa">switch</span><span class="hl sym">(</span>gameinfo<span class="hl sym">-&gt;</span>teamColor<span class="hl sym">) {</span>
+			  <span class="hl kwa">case</span> RED_TEAM<span class="hl sym">:</span>
+			    <span class="hl kwa">if</span><span class="hl sym">(</span><span class="hl kwd">CheckBeaconDetected</span><span class="hl sym">(</span>RIGHT<span class="hl sym">) ==</span> HOOP_RED<span class="hl sym">) {</span>
+			      <span class="hl kwd">StopDriveMotors</span><span class="hl sym">();</span>
+			      <span class="hl kwd">TMRS12_InitTimer</span><span class="hl sym">(</span>SETTLE_TIMER<span class="hl sym">,</span> <span class="hl num">200</span><span class="hl sym">);</span>
+				    <span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Aligned with hoop, going to wait to settle</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+				    next_state <span class="hl sym">=</span> WAITING_TO_SETTLE<span class="hl sym">;</span>
+			    <span class="hl sym">}</span>
+			    <span class="hl kwa">else</span>
+			      next_state <span class="hl sym">=</span> ROTATING_TO_ALIGN_HOOP<span class="hl sym">;</span>
+			  <span class="hl kwa">break</span><span class="hl sym">;</span>
+
+			  <span class="hl kwa">case</span> GREEN_TEAM<span class="hl sym">:</span>
+			    <span class="hl kwa">if</span><span class="hl sym">(</span><span class="hl kwd">CheckBeaconDetected</span><span class="hl sym">(</span>RIGHT<span class="hl sym">) ==</span> HOOP_GREEN<span class="hl sym">) {</span>
+			      <span class="hl kwd">StopDriveMotors</span><span class="hl sym">();</span>
+			      <span class="hl kwd">TMRS12_InitTimer</span><span class="hl sym">(</span>SETTLE_TIMER<span class="hl sym">,</span> <span class="hl num">200</span><span class="hl sym">);</span>
+				    <span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Aligned with hoop, going to wait to settle</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+				    next_state <span class="hl sym">=</span> WAITING_TO_SETTLE<span class="hl sym">;</span>
+			    <span class="hl sym">}</span>
+			    <span class="hl kwa">else</span>
+			      next_state <span class="hl sym">=</span> ROTATING_TO_ALIGN_HOOP<span class="hl sym">;</span>
+			  <span class="hl kwa">break</span><span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+
+			 <span class="hl com">/*</span>
+<span class="hl com">			if(CheckTapeSensor(FRONT) == 1) {</span>
+<span class="hl com">				StopDriveMotors();</span>
+<span class="hl com">				TMRS12_InitTimer(SETTLE_TIMER, 2000);</span>
+<span class="hl com">				printf(&quot;Aligned with hoop, going to wait to settle \r\n&quot;);</span>
+<span class="hl com">				next_state = WAITING_TO_SETTLE;</span>
+<span class="hl com">			}</span>
+<span class="hl com"></span>
+<span class="hl com">			else</span>
+<span class="hl com">				next_state = ROTATING_TO_ALIGN_HOOP;</span>
+<span class="hl com">				*/</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	  <span class="hl kwa">case</span> WAITING_TO_SETTLE<span class="hl sym">:</span>
+	    <span class="hl kwa">if</span><span class="hl sym">(</span><span class="hl kwd">TMRS12_IsTimerExpired</span><span class="hl sym">(</span>SETTLE_TIMER<span class="hl sym">) ==</span> TMRS12_EXPIRED<span class="hl sym">) {</span>
+	      <span class="hl kwd">TMRS12_ClearTimerExpired</span><span class="hl sym">(</span>SETTLE_TIMER<span class="hl sym">);</span>
+				<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Settled down, going to drive to dunk</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+				next_state <span class="hl sym">=</span> DRIVING_TO_DUNK<span class="hl sym">;</span>
+	    <span class="hl sym">}</span>
+	    <span class="hl kwa">else</span>
+	      next_state <span class="hl sym">=</span> WAITING_TO_SETTLE<span class="hl sym">;</span>
+	  <span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span> DRIVING_TO_DUNK<span class="hl sym">:</span>
+			<span class="hl kwa">if</span><span class="hl sym">(</span><span class="hl kwd">ReturnUltrasonicDistance</span><span class="hl sym">() &gt;</span> HOOP_DIST<span class="hl sym">) {</span>
+				<span class="hl kwd">MotorForward</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> L_HOOP_FORWARD<span class="hl sym">);</span>
+				<span class="hl kwd">MotorForward</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span>R_HOOP_FORWARD<span class="hl sym">);</span>
+				next_state <span class="hl sym">=</span> DRIVING_TO_DUNK<span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+			<span class="hl kwa">else if</span> <span class="hl sym">(</span><span class="hl kwd">ReturnUltrasonicDistance</span><span class="hl sym">() &lt;</span> HOOP_DIST<span class="hl sym">) {</span>
+				<span class="hl kwd">MotorReverse</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> L_HOOP_REVERSE<span class="hl sym">);</span>
+				<span class="hl kwd">MotorReverse</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span>R_HOOP_REVERSE<span class="hl sym">);</span>
+				next_state <span class="hl sym">=</span> DRIVING_TO_DUNK<span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+			<span class="hl kwa">else</span> <span class="hl sym">{</span>
+				<span class="hl kwd">StopDriveMotors</span><span class="hl sym">();</span>
+				<span class="hl kwd">RotateCW</span><span class="hl sym">();</span>
+				next_state <span class="hl sym">=</span> ALIGNING_CLOSE_DUNK<span class="hl sym">;</span>
+				<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Dunk distance reached, going to align with close beacon</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+				<span class="hl slc">//next_state = RAISING_CAGE;</span>
+			<span class="hl sym">}</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	  <span class="hl kwa">case</span> ALIGNING_CLOSE_DUNK<span class="hl sym">:</span>
+	    <span class="hl kwa">switch</span><span class="hl sym">(</span>gameinfo<span class="hl sym">-&gt;</span>teamColor<span class="hl sym">) {</span>
+	      <span class="hl kwa">case</span> RED_TEAM<span class="hl sym">:</span>
+	        <span class="hl kwa">if</span><span class="hl sym">(</span><span class="hl kwd">CheckBeaconDetected</span><span class="hl sym">(</span>RIGHT<span class="hl sym">) ==</span> DISPENSER_1<span class="hl sym">) {</span>
+	          <span class="hl kwd">StopDriveMotors</span><span class="hl sym">();</span>
+	          <span class="hl kwd">RotateCCW</span><span class="hl sym">();</span>
+	          <span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Aligned with close beacon, going to align with hoop&quot;</span><span class="hl sym">);</span>
+	          next_state <span class="hl sym">=</span> ALIGNING_HOOP_DUNK<span class="hl sym">;</span>
+	        <span class="hl sym">}</span>
+	        <span class="hl kwa">else</span>
+	          next_state <span class="hl sym">=</span> ALIGNING_CLOSE_DUNK<span class="hl sym">;</span>
+	      <span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	      <span class="hl kwa">case</span> GREEN_TEAM<span class="hl sym">:</span>
+	        <span class="hl kwa">if</span><span class="hl sym">(</span><span class="hl kwd">CheckBeaconDetected</span><span class="hl sym">(</span>RIGHT<span class="hl sym">) ==</span> DISPENSER_2<span class="hl sym">) {</span>
+	          <span class="hl kwd">StopDriveMotors</span><span class="hl sym">();</span>
+	          <span class="hl kwd">RotateCCW</span><span class="hl sym">();</span>
+	          <span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Aligned with close beacon, going to align with hoop&quot;</span><span class="hl sym">);</span>
+	          next_state <span class="hl sym">=</span> ALIGNING_HOOP_DUNK<span class="hl sym">;</span>
+	        <span class="hl sym">}</span>
+	      <span class="hl kwa">break</span><span class="hl sym">;</span>
+	    <span class="hl sym">}</span>
+	  <span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	  <span class="hl kwa">case</span> ALIGNING_HOOP_DUNK<span class="hl sym">:</span>
+	    <span class="hl kwa">switch</span><span class="hl sym">(</span>gameinfo<span class="hl sym">-&gt;</span>teamColor<span class="hl sym">) {</span>
+	      <span class="hl kwa">case</span> RED_TEAM<span class="hl sym">:</span>
+	        <span class="hl kwa">if</span><span class="hl sym">(</span><span class="hl kwd">CheckBeaconDetected</span><span class="hl sym">(</span>RIGHT<span class="hl sym">) ==</span> HOOP_RED<span class="hl sym">) {</span>
+	          <span class="hl kwd">StopDriveMotors</span><span class="hl sym">();</span>
+	          <span class="hl kwd">LiftMotorUp</span><span class="hl sym">();</span>
+	          <span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Aligned with hoop, going to raise cage&quot;</span><span class="hl sym">);</span>
+	          next_state <span class="hl sym">=</span> RAISING_CAGE<span class="hl sym">;</span>
+	        <span class="hl sym">}</span>
+	        <span class="hl kwa">else</span>
+	          next_state <span class="hl sym">=</span> ALIGNING_HOOP_DUNK<span class="hl sym">;</span>
+	      <span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	      <span class="hl kwa">case</span> GREEN_TEAM<span class="hl sym">:</span>
+	        <span class="hl kwa">if</span><span class="hl sym">(</span><span class="hl kwd">CheckBeaconDetected</span><span class="hl sym">(</span>RIGHT<span class="hl sym">) ==</span> HOOP_GREEN<span class="hl sym">) {</span>
+	          <span class="hl kwd">StopDriveMotors</span><span class="hl sym">();</span>
+	          <span class="hl kwd">LiftMotorUp</span><span class="hl sym">();</span>
+	          <span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Aligned with hoop, going to raise cage&quot;</span><span class="hl sym">);</span>
+	          next_state <span class="hl sym">=</span> RAISING_CAGE<span class="hl sym">;</span>
+	        <span class="hl sym">}</span>
+	        <span class="hl kwa">else</span>
+	          next_state <span class="hl sym">=</span> ALIGNING_HOOP_DUNK<span class="hl sym">;</span>
+	      <span class="hl kwa">break</span><span class="hl sym">;</span>
+	    <span class="hl sym">}</span>
+	  <span class="hl kwa">break</span><span class="hl sym">;</span>
+
+
+		<span class="hl kwa">case</span> RAISING_CAGE<span class="hl sym">:</span>
+			<span class="hl kwa">if</span><span class="hl sym">((</span><span class="hl kwd">CheckLiftLimitSwitch</span><span class="hl sym">(</span>TOP<span class="hl sym">) ==</span> <span class="hl num">1</span><span class="hl sym">) &amp;&amp; (</span><span class="hl kwd">ReturnLiftMode</span><span class="hl sym">() ==</span> LIFTING<span class="hl sym">)) {</span>
+				<span class="hl kwd">LiftMotorStop</span><span class="hl sym">();</span>
+			  <span class="hl kwd">TMRS12_InitTimer</span><span class="hl sym">(</span>DUMPING_BALL_TIMER<span class="hl sym">,</span> <span class="hl num">500</span><span class="hl sym">);</span>
+				<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Cage raised, going to dump balls</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+				next_state <span class="hl sym">=</span> DUMPING_BALLS<span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+			<span class="hl kwa">else</span>
+				next_state <span class="hl sym">=</span> RAISING_CAGE<span class="hl sym">;</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	  <span class="hl kwa">case</span> DUMPING_BALLS<span class="hl sym">:</span>
+	    <span class="hl kwa">if</span><span class="hl sym">(</span><span class="hl kwd">TMRS12_IsTimerExpired</span><span class="hl sym">(</span>DUMPING_BALL_TIMER<span class="hl sym">) ==</span> TMRS12_EXPIRED<span class="hl sym">) {</span>
+	       <span class="hl kwd">TMRS12_ClearTimerExpired</span><span class="hl sym">(</span>DUMPING_BALL_TIMER<span class="hl sym">);</span>
+	       <span class="hl kwd">LiftMotorDown</span><span class="hl sym">();</span>
+	       <span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Balls dumped, going to lower cage</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+				 next_state <span class="hl sym">=</span> LOWERING_CAGE<span class="hl sym">;</span>
+	    <span class="hl sym">}</span>
+	    <span class="hl kwa">else</span>
+	      next_state <span class="hl sym">=</span> DUMPING_BALLS<span class="hl sym">;</span>
+	  <span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span> LOWERING_CAGE<span class="hl sym">:</span>
+			<span class="hl kwa">if</span><span class="hl sym">((</span><span class="hl kwd">CheckLiftLimitSwitch</span><span class="hl sym">(</span>BOTTOM<span class="hl sym">) ==</span> <span class="hl num">1</span><span class="hl sym">) &amp;&amp; (</span><span class="hl kwd">ReturnLiftMode</span><span class="hl sym">() ==</span> LOWERING<span class="hl sym">)) {</span>
+				<span class="hl kwd">LiftMotorStop</span><span class="hl sym">();</span>
+				<span class="hl kwd">MotorForward</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> L_DRIVE_SPEED<span class="hl sym">);</span>
+				<span class="hl kwd">MotorForward</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> R_DRIVE_SPEED<span class="hl sym">);</span>
+				<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Lowered cage, going to back up from hoop</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+				next_state <span class="hl sym">=</span> BACKING_UP_FROM_HOOP<span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+			<span class="hl kwa">else</span>
+				next_state <span class="hl sym">=</span> LOWERING_CAGE<span class="hl sym">;</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span> BACKING_UP_FROM_HOOP<span class="hl sym">:</span>
+			<span class="hl kwa">if</span><span class="hl sym">(</span><span class="hl kwd">ReturnUltrasonicDistance</span><span class="hl sym">() &lt;</span> DISPENSER_Y<span class="hl sym">) {</span>
+				<span class="hl kwd">StopDriveMotors</span><span class="hl sym">();</span>
+				<span class="hl kwd">RotateCW</span><span class="hl sym">();</span>
+				<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Backed up from hoop, going to realign with close dispenser</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+				next_state <span class="hl sym">=</span> REALIGN_DISPENSER_CLOSE<span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+			<span class="hl kwa">else</span>
+				next_state <span class="hl sym">=</span>	BACKING_UP_FROM_HOOP<span class="hl sym">;</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span> REALIGN_DISPENSER_CLOSE<span class="hl sym">:</span>
+			<span class="hl kwa">switch</span><span class="hl sym">(</span>gameinfo<span class="hl sym">-&gt;</span>teamColor<span class="hl sym">) {</span>
+				<span class="hl kwa">case</span> RED_TEAM<span class="hl sym">:</span>
+					<span class="hl kwa">if</span><span class="hl sym">((</span><span class="hl kwd">CheckBeaconDetected</span><span class="hl sym">(</span>RIGHT<span class="hl sym">) ==</span> DISPENSER_1<span class="hl sym">)) {</span>
+						<span class="hl kwd">StopDriveMotors</span><span class="hl sym">();</span>
+						<span class="hl kwd">MotorForward</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> L_DRIVE_SPEED<span class="hl sym">);</span>
+						<span class="hl kwd">MotorForward</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> R_DRIVE_SPEED<span class="hl sym">);</span>
+						<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Re-aligned with close dispenser, going to drive to close dispenser</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+						next_state <span class="hl sym">=</span> DRIVING_TO_DISPENSER_CLOSE<span class="hl sym">;</span>
+					<span class="hl sym">}</span>
+					<span class="hl kwa">else</span>
+						next_state <span class="hl sym">=</span> REALIGN_DISPENSER_CLOSE<span class="hl sym">;</span>
+				<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+				<span class="hl kwa">case</span> GREEN_TEAM<span class="hl sym">:</span>
+					<span class="hl kwa">if</span><span class="hl sym">((</span><span class="hl kwd">CheckBeaconDetected</span><span class="hl sym">(</span>RIGHT<span class="hl sym">) ==</span> DISPENSER_2<span class="hl sym">)) {</span>
+						<span class="hl kwd">StopDriveMotors</span><span class="hl sym">();</span>
+						<span class="hl kwd">MotorForward</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> L_DRIVE_SPEED<span class="hl sym">);</span>
+						<span class="hl kwd">MotorForward</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> R_DRIVE_SPEED<span class="hl sym">);</span>
+						<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Re-aligned with close dispenser, going to drive to close dispenser</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+						next_state <span class="hl sym">=</span> DRIVING_TO_DISPENSER_CLOSE<span class="hl sym">;</span>
+					<span class="hl sym">}</span>
+					<span class="hl kwa">else</span>
+						next_state <span class="hl sym">=</span> REALIGN_DISPENSER_CLOSE<span class="hl sym">;</span>
+				<span class="hl kwa">break</span><span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span> DRIVING_TO_DISPENSER_CLOSE<span class="hl sym">:</span>
+			<span class="hl kwa">if</span><span class="hl sym">(</span><span class="hl kwd">ReturnUltrasonicDistance</span><span class="hl sym">() &gt;</span> CONTROL_DISTANCE<span class="hl sym">){</span>
+			  <span class="hl kwd">DriveControlOn</span><span class="hl sym">();</span>
+			  next_state <span class="hl sym">=</span> DRIVING_TO_DISPENSER_CLOSE<span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+			<span class="hl kwa">else if</span><span class="hl sym">(</span><span class="hl kwd">ReturnUltrasonicDistance</span><span class="hl sym">() &lt;=</span> CONTROL_DISTANCE  <span class="hl sym">&amp;&amp; (</span><span class="hl kwd">ReturnUltrasonicDistance</span><span class="hl sym">()&gt;</span> DISPENSER_X<span class="hl sym">)) {</span>
+			  <span class="hl kwd">MotorForward</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> L_DRIVE_SPEED<span class="hl sym">);</span>
+			  <span class="hl kwd">MotorForward</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> R_DRIVE_SPEED<span class="hl sym">);</span>
+			  next_state <span class="hl sym">=</span> DRIVING_TO_DISPENSER_CLOSE<span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+			<span class="hl kwa">else if</span><span class="hl sym">(</span><span class="hl kwd">ReturnUltrasonicDistance</span><span class="hl sym">() &lt;</span> DISPENSER_X<span class="hl sym">) {</span>
+				<span class="hl kwd">StopDriveMotors</span><span class="hl sym">();</span>
+				<span class="hl kwd">RotateCCW</span><span class="hl sym">();</span>
+				<span class="hl kwd">printf</span><span class="hl sym">(</span><span class="hl str">&quot;Arrived at close dispenser, going to align with far dispenser</span> <span class="hl esc">\r\n</span><span class="hl str">&quot;</span><span class="hl sym">);</span>
+				next_state <span class="hl sym">=</span> ROTATING_TO_ALIGN_DISPENSER_FAR<span class="hl sym">;</span>
+			<span class="hl sym">}</span>
+			<span class="hl kwa">else</span>
+				next_state <span class="hl sym">=</span> DRIVING_TO_DISPENSER_CLOSE<span class="hl sym">;</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+
+	<span class="hl kwa">return</span> next_state<span class="hl sym">;</span>
+<span class="hl sym">}</span>
+</pre>
+</body>
+</html>
+<!--HTML generated by highlight 2.13, http://www.andre-simon.de/-->

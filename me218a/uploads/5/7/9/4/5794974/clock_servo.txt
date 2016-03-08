@@ -1,0 +1,9 @@
+Clock servo module
+
+ResetClock: takes no arguments, returns nothing
+	Go to start clock position
+	Update current position
+
+AdvanceClock: takes no arguments, returns nothing
+	Move clock forward
+	Update current position

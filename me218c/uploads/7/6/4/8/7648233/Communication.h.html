@@ -1,0 +1,80 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<title>Communication.h</title>
+</head>
+<body style="background-color:#eeeeee">
+<pre style="color:#000000; background-color:#eeeeee; font-size:8pt; font-family:'Courier New';"><span style="color:#0080c0; font-weight:bold">#ifndef Communication</span>
+<span style="color:#0080c0; font-weight:bold">#define Communication</span>
+
+
+<span style="color:#f27900">//General</span>
+<span style="color:#0080c0; font-weight:bold">#define   START_MESSAGE     0x7E</span>
+<span style="color:#0080c0; font-weight:bold">#define   API_TRANSMIT      0x01</span>
+<span style="color:#0080c0; font-weight:bold">#define   API_RECEIVE       0x81</span>
+
+<span style="color:#f27900">//Addresses</span>
+<span style="color:#0080c0; font-weight:bold">#define   CVC_ADDRESS_MSB   0x20</span>
+<span style="color:#0080c0; font-weight:bold">#define   CVC_ADDRESS_LSB   0x8E</span>
+<span style="color:#0080c0; font-weight:bold">#define   ACV_ADDRESS_MSB   0x21</span>
+<span style="color:#0080c0; font-weight:bold">#define   ACV_ADDRESS_LSB   0x8E</span>
+<span style="color:#0080c0; font-weight:bold">#define   BROADCAST_MSB     0xFF</span>
+<span style="color:#0080c0; font-weight:bold">#define   BROADCAST_LSB     0xFF</span>
+
+<span style="color:#f27900">//Command Types</span>
+<span style="color:#0080c0; font-weight:bold">#define   REQ_CAPTURE       0x66</span>
+<span style="color:#0080c0; font-weight:bold">#define   REQ_CAPTURE_REPLY 0x67</span>
+<span style="color:#0080c0; font-weight:bold">#define   FIND_TEAM         0x89</span>
+<span style="color:#0080c0; font-weight:bold">#define   BROADCAST_CAPTURE 0xAB</span>
+<span style="color:#0080c0; font-weight:bold">#define   COMMAND_C2B       0xCD</span> 	<span style="color:#f27900">// CVC to ACV (Controller to Boat)</span>
+<span style="color:#0080c0; font-weight:bold"></span><span style="color:#0080c0; font-weight:bold">#define   COMMAND_B2C       0xEF</span> 	<span style="color:#f27900">// ACV to CVC (Boat to Controller)</span>
+<span style="color:#0080c0; font-weight:bold"></span>
+<span style="color:#f27900">//Options</span>
+<span style="color:#0080c0; font-weight:bold">#define   DIRECT_MESSAGE    0x02</span>	<span style="color:#f27900">// When transmitting</span>
+<span style="color:#0080c0; font-weight:bold"></span><span style="color:#0080c0; font-weight:bold">#define   BROADCAST_MESSAGE 0x00</span>	<span style="color:#f27900">// When receiving</span>
+<span style="color:#0080c0; font-weight:bold"></span><span style="color:#0080c0; font-weight:bold">#define	  ACK_ON			0x00</span>	<span style="color:#f27900">// When transmitting</span>
+<span style="color:#0080c0; font-weight:bold"></span>
+<span style="color:#f27900">// Colors</span>
+<span style="color:#0080c0; font-weight:bold">#define		RED				0xFE</span>
+<span style="color:#0080c0; font-weight:bold">#define		GREEN			0x01</span>
+<span style="color:#0080c0; font-weight:bold">#define		NO_COLOR		0x88</span>
+
+<span style="color:#f27900">// Received Message</span>
+<span style="color:#0080c0; font-weight:bold">#define   	API               0</span>
+<span style="color:#0080c0; font-weight:bold">#define		RECEIVE_OPTION    4</span>
+<span style="color:#0080c0; font-weight:bold">#define		COMMAND_TYPE  	  5</span>
+<span style="color:#0080c0; font-weight:bold">#define 	ADDRESS_MSB		  1</span>
+<span style="color:#0080c0; font-weight:bold">#define		ADDRESS_LSB		  2</span>
+<span style="color:#0080c0; font-weight:bold">#define		TRANSMIT_STATUS	  2</span>
+
+
+<span style="color:#f27900">// Atoll Capture Reply (pg.6)</span>
+<span style="color:#0080c0; font-weight:bold">#define		ATOLL_NUM_REPLY   6</span>
+<span style="color:#0080c0; font-weight:bold">#define		SUCCESS_FAIL  	  7</span>
+<span style="color:#0080c0; font-weight:bold">#define 	COLOR_REPLY		  8</span>
+<span style="color:#f27900">// Announcing Atoll Capture (Broadcast to Everyone pg. 11)</span>
+<span style="color:#0080c0; font-weight:bold">#define   	TEAM_COLOR        6</span>
+<span style="color:#0080c0; font-weight:bold">#define   	ATOLL_NUMBER      7</span>
+
+
+<span style="color:#0080c0; font-weight:bold">#define		ATOLL_SUCCESS	    0xFF</span>
+<span style="color:#0080c0; font-weight:bold">#define		ATOLL_FAILURE	    0x00</span>
+
+<span style="color:#0080c0">typedef</span> <span style="color:#8080c0; font-weight:bold">enum</span><span style="color:#ff0080; font-weight:bold">{</span>
+	NO_SWIPE<span style="color:#ff0080; font-weight:bold">,</span>
+	ATOLL1_SWIPE<span style="color:#ff0080; font-weight:bold">,</span>
+	ATOLL2_SWIPE<span style="color:#ff0080; font-weight:bold">,</span>
+	ATOLL3_SWIPE<span style="color:#ff0080; font-weight:bold">,</span>
+	ATOLL4_SWIPE<span style="color:#ff0080; font-weight:bold">,</span>
+	ATOLL5_SWIPE<span style="color:#ff0080; font-weight:bold">,</span>
+	RED_SWIPE<span style="color:#ff0080; font-weight:bold">,</span>
+	GREEN_SWIPE<span style="color:#ff0080; font-weight:bold">,</span>
+	WHITE_SWIPE
+<span style="color:#ff0080; font-weight:bold">}</span> Swipe_t<span style="color:#ff0080; font-weight:bold">;</span>
+
+<span style="color:#0080c0; font-weight:bold">#endif</span>
+
+</pre>
+</body>
+</html>
+<!--HTML generated by highlight 2.13, http://www.andre-simon.de/-->

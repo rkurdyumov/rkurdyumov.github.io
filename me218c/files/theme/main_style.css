@@ -1,0 +1,230 @@
+/* CSS Template by gorotron */
+
+body {
+	background-image:url(bg1b.gif);
+	background-repeat:repeat-x;
+	background-color:#FC3;
+	padding:20px 0 0 0;
+	text-align:center;
+}
+
+h1 {
+	font-size:24px;
+	color:#FFF;
+	font-weight:700;
+	margin:0;
+	line-height:1.5;
+}
+
+h3 {
+	font-size:10px;
+	color:#F90;
+	margin:0;
+	font-weight:700;
+	line-height:1.5;
+}
+
+h2 {
+	font-size:16px;
+	color:#369;
+	font-weight:700;
+	margin:0;
+	padding-bottom:5px;
+	border-bottom:1px dotted #CCC;
+	line-height:1.5;
+}
+
+p {
+	margin-top:5px;
+	padding-bottom:5px;
+	font-size:11px;
+	line-height:1.5;
+}
+
+#container {
+	font-family:Arial,Helvetica,sans-serif;
+	font-size:11px;
+	margin:0 auto;
+	width:700px;
+	padding:10px;
+	height:auto;
+	background-color:#FFF;
+	text-align:left;
+}
+
+#banner {
+	width:700px;
+	height:100px;
+	margin-bottom:10px;
+}
+
+#bannerLeft {
+	width:150px;
+	height:100px;
+	margin-right:10px;
+	background-image:url(%%HEADERIMG%%);
+	float:left;
+}
+
+#bannerRight {
+	width:529px;
+	height:49px;
+	background:url(bg1c.gif) repeat-x;
+	float:left;
+	border:1px solid #CCC;
+	border-width:1px 0 0 1px;
+	padding:50px 0 0 10px;
+}
+
+#content {
+	background:url(bg1.gif) repeat-y;
+	height:1%;
+	}
+
+#leftColumn {
+	float:left;
+}
+
+#nav {
+	float:left;
+	margin:0;
+	padding:0;
+	list-style:none;
+}
+
+#nav a {
+	display:block;
+	font-size:11px;
+	color:#fff;
+	text-decoration:none;
+	padding:8px 10px;
+	margin:0;
+	width:130px;
+	border-bottom:1px dotted #333;
+}
+
+#nav a:hover {
+	background-color:#333;
+}
+#active a:link {
+	color:#F90;
+	background-color:#333;
+}
+#active a:hover {
+	color:#F90;
+	background-color:#333;
+}
+#active a:visited {
+	color:#F90;
+	background-color:#333;
+}
+#leftColumnBottom {
+	clear:both;
+	width:130px;
+	background:url(bg1c.gif) repeat-x;
+	padding:110px 10px 10px;
+	color:#EAEAEA;
+}
+
+#rightColumn {
+	float:right;
+	width:530px;
+	padding-left:15px;
+	color:#666;
+	min-height:400px;
+	height:auto !important;
+	height:400px;
+	overflow-x:visible !important;
+	overflow-x:hidden;
+}
+
+#clear {
+	clear:both;
+}
+
+.date {
+	font-size:10px;
+	color:#999;
+	font-weight:normal;
+}
+
+#copyright {
+	padding-top:10px;
+	font:10px Arial,Helvetica,sans-serif;
+	color:#369;
+}
+
+#copyright a {
+	text-decoration:none;
+	color:#369;
+}
+
+#copyright a:hover {
+	color:#F39;
+}
+
+
+/****************************** flyout menus ******************************/
+
+#weebly-menus .weebly-menu-wrap {
+	z-index: 5000;
+}
+
+#weebly-menus .weebly-menu {
+	padding: 0;
+	margin: 0;
+	list-style: none;
+}
+
+#weebly-menus .weebly-menu li {
+	float: left;
+	clear: left;
+	width: 170px;
+	text-align: left;
+}
+
+#weebly-menus .weebly-menu li a {
+	position: relative;
+	display: block;
+	width: 100%;
+	background: #333;
+	border-right: 1px solid #333;
+	border-left: 1px solid #333;
+	border-bottom: 1px solid #333;
+	text-decoration: none;
+	font-family:Arial,Helvetica,sans-serif;
+	font-size: 11px;
+	font-weight: normal;
+	line-height:1;
+	padding:4px 4px 5px 4px;
+	color: #fff;
+}
+
+#weebly-menus .weebly-menu li a:hover {
+	border-right: 1px solid #666666;
+	border-left: 1px solid #666666;
+	border-bottom: 1px solid #666666;
+	background: #666666;
+}
+
+#weebly-menus span.weebly-menu-title {
+	display: block;
+	padding: 5px 10px;
+}
+
+#weebly-menus span.weebly-menu-more {
+	background: transparent url(http://images.weebly.com/weebly/images/submenu_arrow.gif) no-repeat center top;
+	display: block;
+	position: absolute;
+	right: 5px;
+	top: 0;
+	font-family: Courier;
+	height: 28px;
+	line-height: 28px;
+	padding:1px 0 3px 0;
+}
+
+
+
+
+

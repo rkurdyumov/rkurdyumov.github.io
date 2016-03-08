@@ -1,0 +1,23 @@
+Potentiometer module
+
+ReturnMoney: takes lever side, returns money amount
+	local variables: current money level, current voltage
+	if lever side == LEFT_LEVER
+		read current voltage 
+		convert current voltage to current money level
+	if lever side == RIGHT_LEVER
+		read current voltage 
+		convert current voltage to current money level
+	return current money level
+
+CheckLeverReset: takes lever side, returns whether lever is reset
+	local variables: lever reset = 0 (not reset), current money
+	if lever side == LEFT_LEVER
+		current money = ReturnMoney(LEFT_LEVER)
+		if current money < LEFT_LEVER_RESET
+			lever reset = 1
+	if lever side == LEFT_LEVER
+		current money = ReturnMoney(LEFT_LEVER)
+		if current money < LEFT_LEVER_RESET
+			lever reset = 1
+	return lever reset

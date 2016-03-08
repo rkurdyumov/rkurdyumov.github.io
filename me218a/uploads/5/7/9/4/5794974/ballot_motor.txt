@@ -1,0 +1,7 @@
+Ballot motor module
+
+EjectBallot: takes no arguments, returns nothing
+	set motor running
+
+StopBallotMotor: takes no arguments, returns nothing
+	stop motor

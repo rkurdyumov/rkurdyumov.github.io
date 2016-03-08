@@ -1,0 +1,98 @@
+InitializeBeacons: takes no arguments, returns nothing
+Turn the timer system on and prescale by 16 to get 1.5MHz clock rate
+Initialize input capture (T0) on rising and falling edges for the left beacon
+Initialize output compare (T2) with no pin connected for the left beacon
+Initialize input capture (T1) on rising and falling edges for the right beacon
+Initialize output compare (T3) with no pin connected for the right beacon
+Initialize all initial periods to 0
+Enable interrupts globally
+
+CheckBeaconDetected: takes LEFT or RIGHT sensorSide, returns what beacon_t is detected
+switch on the sensorSide
+	case LEFT
+		If the period falls in the 1120 us range and the high time in the 880 us range, the detectedBeacon is DISPENSER_0
+		Else if the period falls in the 1120 us range and the high time in the 720 us range, the detectedBeacon is DISPENSER_1
+		Else if the period falls in the 880 us range and the high time in the 240 us range, the detectedBeacon is DISPENSER_2
+		Else if the period falls in the 880 us range and the high time in the 400 us range, the detectedBeacon is DISPENSER_3
+		Else if the period falls in the 1120 us range and the high time in the 560 us range, the detectedBeacon is HOOP_RED
+		Else if the period falls in the 880 us range and the high time in the 560 us range, the detectedBeacon is HOOP_GREEN 
+	case RIGHT
+		Same
+Return the detectedBeacon
+
+ReturnHighTime: takes LEFT or RIGHT beacon, returns the current high time
+switch on the beacon
+	case LEFT: return 2/3 of the current left time high (to get time in microseconds since we have 1.5 MHz clock)
+	case RIGHT: return 2/3 of the current right time high (to get time in microseconds)
+
+ReturnPeriod: takes LEFT or RIGHT beacon, returns the current period
+switch on the beacon
+	case LEFT: return 2/3 of the current left period (to get time in microseconds)
+	case RIGHT: return 2/3 of the current right period (to get time in microseconds)
+
+HandleLeftEdge: takes no arguments, returns nothing
+Capture the currTime
+Get the state of the edge (high or low)
+If the state is high (rising edge)
+	The period is the currTime - last valid left high time
+	If currTime - last left falling edge time < noise period
+		Not a valid rising edge, noise
+	Else if the period falls in the range for 880 us period
+		Valid rising edge
+		Record leftPeriod as 880 us period
+	Else if the period falls in the range for 1120 us period
+		Valid rising edge
+		Record leftPeriod as 1120 us period
+	Else (unexpected period, or first time calling function)
+		Not valid rising edge
+		Record leftPeriod as 0
+		Set the last valid left high time as the currTime
+	Update the last left high time
+
+Else (falling edge)
+	Not a valid rising edge
+	The timeHigh is the currTime - last valid left high time
+	If currTime - last left rising edge time < noise period
+		Noise
+	Else if the timeHigh falls in the range for 240 us high time
+		Record leftHighTime as 240 us high time
+	Else if the timeHigh falls in the range for 400 us high time
+		Record leftHighTime as 400 us high time
+	Else if the timeHigh falls in the range for 560 us high time
+		Record leftHighTime as 560 us high time
+	Else if the timeHigh falls in the range for 720 us high time
+		Record leftHighTime as 720 us high time
+	Else if the timeHigh falls in the range for 880 us high time
+		Record leftHighTime as 880 us high time
+	Else (unexpected high time)
+		Record leftHighTime as 0
+		Set the last valid left high time as the currTime
+	Update the last left low time
+
+If we had a valid rising edge
+	Update the last valid left high time
+
+HandleRightEdge: takes no arguments, returns nothing
+same as above, replacing 'left' with 'right'
+
+LeftEdgeDetected (input capture)
+Schedule output compare to trigger when signal out of range
+Turn on OC interrupt
+Figure out period/high time (HandleLeftEdge)
+Clear flag
+
+RightEdgeDetected (input capture)
+Schedule output compare to trigger when signal out of range
+Turn on OC interrupt
+Figure out period/high time (HandleRightEdge)
+Clear flag
+
+LeftBeaconLost (output compare)
+Clear flag
+Turn off OC interrupt
+Get ready for next signal detection (set period and leftHighTime to 0)
+
+RightBeaconLost (output compare)
+Clear flag
+Turn off OC interrupt
+Get ready for next signal detection (set period and rightHighTime to 0)

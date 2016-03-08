@@ -1,0 +1,33 @@
+InitializeLiftMotor: takes no arguments, returns nothing
+Turn on PWM for U4
+Set the frequency to 800
+LiftMotorStop
+Clear IRQEN to make Port E1 available as an input
+Set ports E1 and E0 as inputs
+Set port U5 as output
+Initialize the liftMode to lowering (assume the cage is down)
+
+LiftMotorStop: takes no arguments, returns nothing
+Set the duty cycle to the motor to 0
+
+LiftMotorUp: takes no arguments, returns nothing
+Set the liftMode to lifting
+Set the direction pin high (lift up)
+Set the duty cycle to the motor to 50
+
+LiftMotorDown: takes no arguments, returns nothing
+Set the liftMode to lowering
+Set the direction pin low (lift down)
+Set the duty cycle to the motor to 25
+
+CheckLiftLimitSwitch: takes TOP or BOTTOM switch, returns 1 if pressed
+switch on the liftSwitch
+	case TOP
+		If E0 is high, return 1 (pressed)
+		Else return 0
+	case BOTTOM
+		If E1 is high, return 1 (pressed)
+		Else return 0
+
+ReturnLiftMode: takes no arguments, returns LIFTING or LOWERING
+Return liftMode

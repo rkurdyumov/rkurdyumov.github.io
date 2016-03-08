@@ -1,0 +1,339 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<title>beacon.c</title>
+<link rel="stylesheet" type="text/css" href="highlight.css">
+</head>
+<body class="hl">
+<pre class="hl"><span class="hl com">/**************************************************************************</span>
+<span class="hl com"></span>
+<span class="hl com">Beacon detection module</span>
+<span class="hl com"></span>
+<span class="hl com">Left beacon:</span>
+<span class="hl com">TIM0, Port T0, timer 4 (rising + falling edges)</span>
+<span class="hl com">TIM0, Port T2, timer 6 (output compare)</span>
+<span class="hl com"></span>
+<span class="hl com">Right beacon:</span>
+<span class="hl com">TIM0, Port T1, timer 5 (rising and falling edges)</span>
+<span class="hl com">TIM0, Port T3, timer 7 (output compare)</span>
+<span class="hl com"></span>
+<span class="hl com">**************************************************************************/</span>
+
+<span class="hl com">/*---------------------------- Include Files ----------------------------*/</span>
+
+<span class="hl dir">#include &lt;stdio.h&gt;</span>
+<span class="hl dir">#include &lt;hidef.h&gt;</span>
+<span class="hl dir">#include &lt;mc9s12e128.h&gt;</span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;ME218_E128.h&quot;</span><span class="hl dir"></span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;S12eVec.h&quot;</span><span class="hl dir"></span>
+<span class="hl dir">#include &lt;timers12.h&gt;</span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;game.h&quot;</span><span class="hl dir"></span>
+
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;beacon.h&quot;</span><span class="hl dir"></span>
+
+<span class="hl com">/*--------------------------- Module Defines ----------------------------*/</span>
+<span class="hl dir">#define _10US_ *15</span>
+<span class="hl dir">#define _MS_ *1500</span>
+
+<span class="hl dir">#define OC_PERIOD (3 _MS_)</span>
+<span class="hl dir">#define PERIOD_880US (88 _10US_)</span>
+<span class="hl dir">#define PERIOD_1120US (112 _10US_)</span>
+<span class="hl dir">#define HITIME_880US (88 _10US_)</span>
+<span class="hl dir">#define HITIME_720US (72 _10US_)</span>
+<span class="hl dir">#define HITIME_400US (40 _10US_)</span>
+<span class="hl dir">#define HITIME_240US (24 _10US_)</span>
+<span class="hl dir">#define HITIME_560US (56 _10US_)</span>
+<span class="hl dir">#define PER_NOISE (10 _10US_)</span>
+<span class="hl dir">#define ERROR (4 _10US_)</span>
+
+<span class="hl com">/*---------------------------- Module Types -----------------------------*/</span>
+
+<span class="hl com">/*-------------------------- Module Variables ---------------------------*/</span>
+<span class="hl kwb">static unsigned int</span> leftPeriod<span class="hl sym">,</span> leftHighTime<span class="hl sym">;</span>
+<span class="hl kwb">static unsigned int</span> rightPeriod<span class="hl sym">,</span> rightHighTime<span class="hl sym">;</span>
+<span class="hl kwb">static unsigned int</span> lastLeftHI<span class="hl sym">,</span> lastLeftValidHI<span class="hl sym">,</span> lastRightHI<span class="hl sym">,</span> lastRightValidHI<span class="hl sym">;</span>
+<span class="hl kwb">static unsigned int</span> lastLeftLO<span class="hl sym">,</span> lastRightLO<span class="hl sym">;</span>
+<span class="hl kwb">static unsigned int</span> lTimeHigh<span class="hl sym">,</span> rTimeHigh<span class="hl sym">;</span> <span class="hl slc">// unrounded high times</span>
+<span class="hl kwb">static unsigned int</span> lPeriod<span class="hl sym">,</span> rPeriod<span class="hl sym">;</span>
+
+<span class="hl com">/*-------------------------- Module Functions ---------------------------*/</span>
+<span class="hl kwb">void</span> <span class="hl kwd">HandleLeftEdge</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">);</span>
+<span class="hl kwb">void</span> <span class="hl kwd">HandleRightEdge</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">);</span>
+
+<span class="hl com">/*----------------------------- Module Code -----------------------------*/</span>
+
+<span class="hl kwb">void</span> <span class="hl kwd">InitializeBeacons</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">) {</span>
+
+	TIM0_TSCR1 <span class="hl sym">=</span> _S12_TEN<span class="hl sym">;</span> <span class="hl slc">// Turn the Timer system on</span>
+	TIM0_TSCR2 <span class="hl sym">=</span> _S12_PR2<span class="hl sym">;</span> <span class="hl slc">// Prescale: 16, so 24 MHz / 16 = 1.5 MHz</span>
+
+	<span class="hl slc">// Left beacon</span>
+	<span class="hl slc">// Input capture</span>
+	TIM0_TIOS <span class="hl sym">&amp;= ~(</span>_S12_IOS4<span class="hl sym">);</span> <span class="hl slc">// Input Capture on Ch4 [T0] (rising + falling edges)</span>
+	TIM0_TCTL3 <span class="hl sym">|= (</span>_S12_EDG4A <span class="hl sym">|</span> _S12_EDG4B<span class="hl sym">);</span> <span class="hl slc">// Capture rising/falling edges</span>
+	TIM0_TFLG1 <span class="hl sym">=</span> _S12_C4F<span class="hl sym">;</span> <span class="hl slc">// Clear flag</span>
+	TIM0_TIE <span class="hl sym">|=</span> _S12_C4I<span class="hl sym">;</span> <span class="hl slc">// Enable interrupt</span>
+	<span class="hl slc">// Output compare</span>
+	TIM0_TIOS <span class="hl sym">=</span> _S12_IOS6<span class="hl sym">;</span> <span class="hl slc">// Output compare on Ch6 [T2]</span>
+	TIM0_TCTL1 <span class="hl sym">=</span> TIM0_TCTL1 <span class="hl sym">&amp; ~(</span>_S12_OL6 <span class="hl sym">|</span> _S12_OM6<span class="hl sym">);</span> <span class="hl slc">// Set No Pin Connected to OC Interrupt</span>
+	TIM0_TFLG1 <span class="hl sym">=</span> _S12_C6F<span class="hl sym">;</span> <span class="hl slc">// Clear Output Compare 4 Flag</span>
+
+	<span class="hl slc">// Right beacon</span>
+	<span class="hl slc">// Input capture</span>
+	TIM0_TIOS <span class="hl sym">&amp;= ~(</span>_S12_IOS5<span class="hl sym">);</span> <span class="hl slc">// Input Capture on Ch5 [T1] (rising + falling edges)</span>
+	TIM0_TCTL3 <span class="hl sym">|= (</span>_S12_EDG5A <span class="hl sym">|</span> _S12_EDG5B<span class="hl sym">);</span> <span class="hl slc">// Capture rising/falling edges</span>
+	TIM0_TFLG1 <span class="hl sym">=</span> _S12_C5F<span class="hl sym">;</span> <span class="hl slc">// Clear flag</span>
+	TIM0_TIE <span class="hl sym">|=</span> _S12_C5I<span class="hl sym">;</span> <span class="hl slc">// Enable interrupt</span>
+	<span class="hl slc">// Output compare</span>
+	TIM0_TIOS <span class="hl sym">=</span> _S12_IOS7<span class="hl sym">;</span> <span class="hl slc">// Output compare on Ch7 [T3]</span>
+	TIM0_TCTL1 <span class="hl sym">=</span> TIM0_TCTL1 <span class="hl sym">&amp; ~(</span>_S12_OL7 <span class="hl sym">|</span> _S12_OM7<span class="hl sym">);</span> <span class="hl slc">// Set No Pin Connected to OC Interrupt</span>
+	TIM0_TFLG1 <span class="hl sym">=</span> _S12_C7F<span class="hl sym">;</span> <span class="hl slc">// Clear Output Compare 4 Flag</span>
+
+	<span class="hl slc">// Initialize initial periods</span>
+	leftPeriod <span class="hl sym">=</span> leftHighTime <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	rightPeriod <span class="hl sym">=</span> rightHighTime <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	lastLeftHI <span class="hl sym">=</span> lastLeftValidHI <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	lastRightHI <span class="hl sym">=</span> lastRightValidHI <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	lastLeftLO <span class="hl sym">=</span> lastRightLO <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	lTimeHigh <span class="hl sym">=</span> rTimeHigh <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+
+	EnableInterrupts<span class="hl sym">;</span> <span class="hl slc">//Globally Enable Interrupts</span>
+<span class="hl sym">}</span>
+
+
+beacon_t <span class="hl kwd">CheckBeaconDetected</span><span class="hl sym">(</span><span class="hl kwb">unsigned char</span> sensorSide<span class="hl sym">) {</span>
+
+	beacon_t detectedBeacon <span class="hl sym">=</span> NO_BEACON<span class="hl sym">;</span>
+
+	<span class="hl kwa">switch</span><span class="hl sym">(</span>sensorSide<span class="hl sym">) {</span>
+		<span class="hl kwa">case</span> LEFT<span class="hl sym">:</span>
+			<span class="hl kwa">if</span> <span class="hl sym">(</span>leftPeriod <span class="hl sym">==</span> PERIOD_1120US <span class="hl sym">&amp;&amp;</span> leftHighTime <span class="hl sym">==</span> HITIME_880US<span class="hl sym">)</span>
+				detectedBeacon <span class="hl sym">=</span> DISPENSER_0<span class="hl sym">;</span>
+			<span class="hl kwa">else if</span> <span class="hl sym">(</span>leftPeriod <span class="hl sym">==</span> PERIOD_1120US <span class="hl sym">&amp;&amp;</span> leftHighTime <span class="hl sym">==</span> HITIME_720US<span class="hl sym">)</span>
+				detectedBeacon <span class="hl sym">=</span> DISPENSER_1<span class="hl sym">;</span>
+			<span class="hl kwa">else if</span> <span class="hl sym">(</span>leftPeriod <span class="hl sym">==</span> PERIOD_880US <span class="hl sym">&amp;&amp;</span> leftHighTime <span class="hl sym">==</span> HITIME_240US<span class="hl sym">)</span>
+				detectedBeacon <span class="hl sym">=</span> DISPENSER_2<span class="hl sym">;</span>
+			<span class="hl kwa">else if</span> <span class="hl sym">(</span>leftPeriod <span class="hl sym">==</span> PERIOD_880US <span class="hl sym">&amp;&amp;</span> leftHighTime <span class="hl sym">==</span> HITIME_400US<span class="hl sym">)</span>
+				detectedBeacon <span class="hl sym">=</span> DISPENSER_3<span class="hl sym">;</span>
+			<span class="hl kwa">else if</span> <span class="hl sym">(</span>leftPeriod <span class="hl sym">==</span> PERIOD_1120US <span class="hl sym">&amp;&amp;</span> leftHighTime <span class="hl sym">==</span> HITIME_560US<span class="hl sym">)</span>
+				detectedBeacon <span class="hl sym">=</span> HOOP_RED<span class="hl sym">;</span>
+			<span class="hl kwa">else if</span> <span class="hl sym">(</span>leftPeriod <span class="hl sym">==</span> PERIOD_880US <span class="hl sym">&amp;&amp;</span> leftHighTime <span class="hl sym">==</span> HITIME_560US<span class="hl sym">)</span>
+				detectedBeacon <span class="hl sym">=</span> HOOP_GREEN<span class="hl sym">;</span>
+			<span class="hl kwa">break</span><span class="hl sym">;</span>
+		<span class="hl kwa">case</span> RIGHT<span class="hl sym">:</span>
+			<span class="hl kwa">if</span> <span class="hl sym">(</span>rightPeriod <span class="hl sym">==</span> PERIOD_1120US <span class="hl sym">&amp;&amp;</span> rightHighTime <span class="hl sym">==</span> HITIME_880US<span class="hl sym">)</span>
+				detectedBeacon <span class="hl sym">=</span> DISPENSER_0<span class="hl sym">;</span>
+			<span class="hl kwa">else if</span> <span class="hl sym">(</span>rightPeriod <span class="hl sym">==</span> PERIOD_1120US <span class="hl sym">&amp;&amp;</span> rightHighTime <span class="hl sym">==</span> HITIME_720US<span class="hl sym">)</span>
+				detectedBeacon <span class="hl sym">=</span> DISPENSER_1<span class="hl sym">;</span>
+			<span class="hl kwa">else if</span> <span class="hl sym">(</span>rightPeriod <span class="hl sym">==</span> PERIOD_880US <span class="hl sym">&amp;&amp;</span> rightHighTime <span class="hl sym">==</span> HITIME_240US<span class="hl sym">)</span>
+				detectedBeacon <span class="hl sym">=</span> DISPENSER_2<span class="hl sym">;</span>
+			<span class="hl kwa">else if</span> <span class="hl sym">(</span>rightPeriod <span class="hl sym">==</span> PERIOD_880US <span class="hl sym">&amp;&amp;</span> rightHighTime <span class="hl sym">==</span> HITIME_400US<span class="hl sym">)</span>
+				detectedBeacon <span class="hl sym">=</span> DISPENSER_3<span class="hl sym">;</span>
+			<span class="hl kwa">else if</span> <span class="hl sym">(</span>rightPeriod <span class="hl sym">==</span> PERIOD_1120US <span class="hl sym">&amp;&amp;</span> rightHighTime <span class="hl sym">==</span> HITIME_560US<span class="hl sym">)</span>
+				detectedBeacon <span class="hl sym">=</span> HOOP_RED<span class="hl sym">;</span>
+			<span class="hl kwa">else if</span> <span class="hl sym">(</span>rightPeriod <span class="hl sym">==</span> PERIOD_880US <span class="hl sym">&amp;&amp;</span> rightHighTime <span class="hl sym">==</span> HITIME_560US<span class="hl sym">)</span>
+				detectedBeacon <span class="hl sym">=</span> HOOP_GREEN<span class="hl sym">;</span>
+			<span class="hl kwa">break</span><span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+	<span class="hl kwa">return</span> detectedBeacon<span class="hl sym">;</span>
+<span class="hl sym">}</span>
+
+<span class="hl slc">// ReturnHighTime: take LEFT or RIGHT beacon, return current high time</span>
+<span class="hl kwb">unsigned int</span> <span class="hl kwd">ReturnHighTime</span><span class="hl sym">(</span><span class="hl kwb">unsigned char</span> beacon<span class="hl sym">) {</span>
+
+	<span class="hl kwa">switch</span><span class="hl sym">(</span>beacon<span class="hl sym">) {</span>
+		<span class="hl kwa">case</span> LEFT<span class="hl sym">:</span> <span class="hl kwa">return</span> <span class="hl num">2</span><span class="hl sym">*</span>lTimeHigh<span class="hl sym">/</span><span class="hl num">3</span><span class="hl sym">;</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+		<span class="hl kwa">case</span> RIGHT<span class="hl sym">:</span> <span class="hl kwa">return</span> <span class="hl num">2</span><span class="hl sym">*</span>rTimeHigh<span class="hl sym">/</span><span class="hl num">3</span><span class="hl sym">;</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+<span class="hl sym">}</span>
+
+<span class="hl kwb">unsigned int</span> <span class="hl kwd">ReturnPeriod</span><span class="hl sym">(</span><span class="hl kwb">unsigned char</span> beacon<span class="hl sym">) {</span>
+
+  <span class="hl kwa">switch</span><span class="hl sym">(</span>beacon<span class="hl sym">) {</span>
+		<span class="hl kwa">case</span> LEFT<span class="hl sym">:</span> <span class="hl kwa">return</span> <span class="hl num">2</span><span class="hl sym">*</span>lPeriod<span class="hl sym">/</span><span class="hl num">3</span><span class="hl sym">;</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+		<span class="hl kwa">case</span> RIGHT<span class="hl sym">:</span> <span class="hl kwa">return</span> <span class="hl num">2</span><span class="hl sym">*</span>rPeriod<span class="hl sym">/</span><span class="hl num">3</span><span class="hl sym">;</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+<span class="hl sym">}</span>
+
+<span class="hl kwb">void</span> <span class="hl kwd">HandleLeftEdge</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">) {</span>
+
+	<span class="hl kwb">static unsigned char</span> validHI<span class="hl sym">,</span> edgeState<span class="hl sym">;</span>
+	<span class="hl kwb">unsigned int</span> currTime<span class="hl sym">,</span> period<span class="hl sym">;</span>
+
+	currTime <span class="hl sym">=</span> TIM0_TC4<span class="hl sym">;</span>
+	edgeState <span class="hl sym">=</span> PTT <span class="hl sym">&amp;</span> BIT0HI<span class="hl sym">;</span>
+
+	<span class="hl kwa">if</span> <span class="hl sym">(</span>edgeState <span class="hl sym">==</span> BIT0HI<span class="hl sym">) {</span>	<span class="hl slc">// Rising edge</span>
+
+		period <span class="hl sym">=</span> currTime <span class="hl sym">-</span> lastLeftValidHI<span class="hl sym">;</span>
+		lPeriod <span class="hl sym">=</span> period<span class="hl sym">;</span>
+
+		<span class="hl slc">// Noise</span>
+		<span class="hl kwa">if</span> <span class="hl sym">((</span>currTime <span class="hl sym">-</span> lastLeftLO<span class="hl sym">) &lt;</span> PER_NOISE<span class="hl sym">)</span>
+			validHI <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+		<span class="hl kwa">else if</span> <span class="hl sym">(</span>period <span class="hl sym">&gt; (</span>PERIOD_880US <span class="hl sym">-</span> ERROR<span class="hl sym">) &amp;&amp;</span> period <span class="hl sym">&lt; (</span>PERIOD_880US <span class="hl sym">+</span> ERROR<span class="hl sym">)) {</span>
+			validHI <span class="hl sym">=</span> <span class="hl num">1</span><span class="hl sym">;</span>
+			leftPeriod <span class="hl sym">=</span> PERIOD_880US<span class="hl sym">;</span>
+		<span class="hl sym">}</span>
+		<span class="hl kwa">else if</span> <span class="hl sym">(</span>period <span class="hl sym">&gt; (</span>PERIOD_1120US <span class="hl sym">-</span> ERROR<span class="hl sym">) &amp;&amp;</span> period <span class="hl sym">&lt; (</span>PERIOD_1120US <span class="hl sym">+</span> ERROR<span class="hl sym">)) {</span>
+			validHI <span class="hl sym">=</span> <span class="hl num">1</span><span class="hl sym">;</span>
+			leftPeriod <span class="hl sym">=</span> PERIOD_1120US<span class="hl sym">;</span>
+		<span class="hl sym">}</span>
+		<span class="hl slc">// Unexpected period (or first time through)</span>
+		<span class="hl kwa">else</span> <span class="hl sym">{</span>
+			validHI <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+			leftPeriod <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+			lastLeftValidHI <span class="hl sym">=</span> currTime<span class="hl sym">;</span>
+		<span class="hl sym">}</span>
+		lastLeftHI <span class="hl sym">=</span> currTime<span class="hl sym">;</span> <span class="hl slc">// Update rising edge time</span>
+	<span class="hl sym">}</span>
+
+	<span class="hl slc">// Falling edge</span>
+	<span class="hl kwa">else</span> <span class="hl sym">{</span>
+
+		validHI <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span> <span class="hl slc">// current edge not a valid rising edge</span>
+		lTimeHigh <span class="hl sym">=</span> currTime <span class="hl sym">-</span> lastLeftValidHI<span class="hl sym">;</span>
+
+		<span class="hl slc">// Noise</span>
+		<span class="hl kwa">if</span> <span class="hl sym">(</span>currTime <span class="hl sym">-</span> lastLeftHI <span class="hl sym">&lt;</span> PER_NOISE<span class="hl sym">);</span> <span class="hl slc">// ignore</span>
+		<span class="hl kwa">else  if</span> <span class="hl sym">(</span>lTimeHigh <span class="hl sym">&gt; (</span>HITIME_240US <span class="hl sym">-</span> ERROR<span class="hl sym">) &amp;&amp;</span> lTimeHigh <span class="hl sym">&lt; (</span>HITIME_240US <span class="hl sym">+</span> ERROR<span class="hl sym">))</span>
+			leftHighTime <span class="hl sym">=</span> HITIME_240US<span class="hl sym">;</span>
+		<span class="hl kwa">else  if</span> <span class="hl sym">(</span>lTimeHigh <span class="hl sym">&gt; (</span>HITIME_400US <span class="hl sym">-</span> ERROR<span class="hl sym">) &amp;&amp;</span> lTimeHigh <span class="hl sym">&lt; (</span>HITIME_400US <span class="hl sym">+</span> ERROR<span class="hl sym">))</span>
+			leftHighTime <span class="hl sym">=</span> HITIME_400US<span class="hl sym">;</span>
+		<span class="hl kwa">else  if</span> <span class="hl sym">(</span>lTimeHigh <span class="hl sym">&gt; (</span>HITIME_560US <span class="hl sym">-</span> ERROR<span class="hl sym">) &amp;&amp;</span> lTimeHigh <span class="hl sym">&lt; (</span>HITIME_560US <span class="hl sym">+</span> ERROR<span class="hl sym">))</span>
+			leftHighTime <span class="hl sym">=</span> HITIME_560US<span class="hl sym">;</span>
+		<span class="hl kwa">else  if</span> <span class="hl sym">(</span>lTimeHigh <span class="hl sym">&gt; (</span>HITIME_720US <span class="hl sym">-</span> ERROR<span class="hl sym">) &amp;&amp;</span> lTimeHigh <span class="hl sym">&lt; (</span>HITIME_720US <span class="hl sym">+</span> ERROR<span class="hl sym">))</span>
+			leftHighTime <span class="hl sym">=</span> HITIME_720US<span class="hl sym">;</span>
+		<span class="hl kwa">else  if</span> <span class="hl sym">(</span>lTimeHigh <span class="hl sym">&gt; (</span>HITIME_880US <span class="hl sym">-</span> ERROR<span class="hl sym">) &amp;&amp;</span> lTimeHigh <span class="hl sym">&lt; (</span>HITIME_880US <span class="hl sym">+</span> ERROR<span class="hl sym">))</span>
+			leftHighTime <span class="hl sym">=</span> HITIME_880US<span class="hl sym">;</span>
+		<span class="hl kwa">else</span> <span class="hl slc">// unexpected period</span>
+			leftHighTime <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+
+		lastLeftLO <span class="hl sym">=</span> currTime<span class="hl sym">;</span> <span class="hl slc">// Update falling edge time</span>
+	<span class="hl sym">}</span>
+
+	<span class="hl slc">// We had a valid rising edge</span>
+	<span class="hl kwa">if</span> <span class="hl sym">(</span>validHI <span class="hl sym">==</span> <span class="hl num">1</span><span class="hl sym">)</span>
+		lastLeftValidHI <span class="hl sym">=</span> currTime<span class="hl sym">;</span> <span class="hl slc">// update last valid rising edge time</span>
+<span class="hl sym">}</span>
+
+<span class="hl kwb">void</span> <span class="hl kwd">HandleRightEdge</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">) {</span>
+
+	<span class="hl kwb">static unsigned char</span> validHI<span class="hl sym">,</span> edgeState<span class="hl sym">;</span>
+	<span class="hl kwb">unsigned int</span> currTime<span class="hl sym">,</span> period<span class="hl sym">;</span>
+
+	currTime <span class="hl sym">=</span> TIM0_TC5<span class="hl sym">;</span>
+	edgeState <span class="hl sym">=</span> PTT <span class="hl sym">&amp;</span> BIT1HI<span class="hl sym">;</span>
+
+	<span class="hl slc">// Rising edge</span>
+	<span class="hl kwa">if</span> <span class="hl sym">(</span>edgeState <span class="hl sym">==</span> BIT1HI<span class="hl sym">) {</span>
+
+		period <span class="hl sym">=</span> currTime <span class="hl sym">-</span> lastRightValidHI<span class="hl sym">;</span>
+		rPeriod <span class="hl sym">=</span> period<span class="hl sym">;</span>
+
+		<span class="hl slc">// Noise</span>
+		<span class="hl kwa">if</span> <span class="hl sym">((</span>currTime <span class="hl sym">-</span> lastRightLO<span class="hl sym">) &lt;</span> PER_NOISE<span class="hl sym">)</span>
+			validHI <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+		<span class="hl kwa">else if</span> <span class="hl sym">(</span>period <span class="hl sym">&gt; (</span>PERIOD_880US <span class="hl sym">-</span> ERROR<span class="hl sym">) &amp;&amp;</span> period <span class="hl sym">&lt; (</span>PERIOD_880US <span class="hl sym">+</span> ERROR<span class="hl sym">)) {</span>
+			validHI <span class="hl sym">=</span> <span class="hl num">1</span><span class="hl sym">;</span>
+			rightPeriod <span class="hl sym">=</span> PERIOD_880US<span class="hl sym">;</span>
+		<span class="hl sym">}</span>
+		<span class="hl kwa">else if</span> <span class="hl sym">(</span>period <span class="hl sym">&gt; (</span>PERIOD_1120US <span class="hl sym">-</span> ERROR<span class="hl sym">) &amp;&amp;</span> period <span class="hl sym">&lt; (</span>PERIOD_1120US <span class="hl sym">+</span> ERROR<span class="hl sym">)) {</span>
+			validHI <span class="hl sym">=</span> <span class="hl num">1</span><span class="hl sym">;</span>
+			rightPeriod <span class="hl sym">=</span> PERIOD_1120US<span class="hl sym">;</span>
+		<span class="hl sym">}</span>
+		<span class="hl slc">// Unexpected period (or first time through)</span>
+		<span class="hl kwa">else</span> <span class="hl sym">{</span>
+			validHI <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+			rightPeriod <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+			lastRightValidHI <span class="hl sym">=</span> currTime<span class="hl sym">;</span>
+		<span class="hl sym">}</span>
+		lastRightHI <span class="hl sym">=</span> currTime<span class="hl sym">;</span> <span class="hl slc">// Update rising edge time</span>
+	<span class="hl sym">}</span>
+
+	<span class="hl slc">// Falling edge</span>
+	<span class="hl kwa">else</span> <span class="hl sym">{</span>
+
+		validHI <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span> <span class="hl slc">// current edge not a valid rising edge</span>
+		rTimeHigh <span class="hl sym">=</span> currTime <span class="hl sym">-</span> lastRightValidHI<span class="hl sym">;</span>
+
+		<span class="hl slc">// Noise</span>
+		<span class="hl kwa">if</span> <span class="hl sym">(</span>currTime <span class="hl sym">-</span> lastRightHI <span class="hl sym">&lt;</span> PER_NOISE<span class="hl sym">);</span> <span class="hl slc">// ignore</span>
+		<span class="hl kwa">else  if</span> <span class="hl sym">(</span>rTimeHigh <span class="hl sym">&gt; (</span>HITIME_240US <span class="hl sym">-</span> ERROR<span class="hl sym">) &amp;&amp;</span> rTimeHigh <span class="hl sym">&lt; (</span>HITIME_240US <span class="hl sym">+</span> ERROR<span class="hl sym">))</span>
+			rightHighTime <span class="hl sym">=</span> HITIME_240US<span class="hl sym">;</span>
+		<span class="hl kwa">else  if</span> <span class="hl sym">(</span>rTimeHigh <span class="hl sym">&gt; (</span>HITIME_400US <span class="hl sym">-</span> ERROR<span class="hl sym">) &amp;&amp;</span> rTimeHigh <span class="hl sym">&lt; (</span>HITIME_400US <span class="hl sym">+</span> ERROR<span class="hl sym">))</span>
+			rightHighTime <span class="hl sym">=</span> HITIME_400US<span class="hl sym">;</span>
+		<span class="hl kwa">else  if</span> <span class="hl sym">(</span>rTimeHigh <span class="hl sym">&gt; (</span>HITIME_560US <span class="hl sym">-</span> ERROR<span class="hl sym">) &amp;&amp;</span> rTimeHigh <span class="hl sym">&lt; (</span>HITIME_560US <span class="hl sym">+</span> ERROR<span class="hl sym">))</span>
+			rightHighTime <span class="hl sym">=</span> HITIME_560US<span class="hl sym">;</span>
+		<span class="hl kwa">else  if</span> <span class="hl sym">(</span>rTimeHigh <span class="hl sym">&gt; (</span>HITIME_720US <span class="hl sym">-</span> ERROR<span class="hl sym">) &amp;&amp;</span> rTimeHigh <span class="hl sym">&lt; (</span>HITIME_720US <span class="hl sym">+</span> ERROR<span class="hl sym">))</span>
+			rightHighTime <span class="hl sym">=</span> HITIME_720US<span class="hl sym">;</span>
+		<span class="hl kwa">else  if</span> <span class="hl sym">(</span>rTimeHigh <span class="hl sym">&gt; (</span>HITIME_880US <span class="hl sym">-</span> ERROR<span class="hl sym">) &amp;&amp;</span> rTimeHigh <span class="hl sym">&lt; (</span>HITIME_880US <span class="hl sym">+</span> ERROR<span class="hl sym">))</span>
+			rightHighTime <span class="hl sym">=</span> HITIME_880US<span class="hl sym">;</span>
+		<span class="hl kwa">else</span> <span class="hl slc">// unexpected period</span>
+			rightHighTime <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+
+		lastRightLO <span class="hl sym">=</span> currTime<span class="hl sym">;</span> <span class="hl slc">// Update falling edge time</span>
+	<span class="hl sym">}</span>
+
+	<span class="hl slc">// We had a valid rising edge</span>
+	<span class="hl kwa">if</span> <span class="hl sym">(</span>validHI <span class="hl sym">==</span> <span class="hl num">1</span><span class="hl sym">)</span>
+		lastRightValidHI <span class="hl sym">=</span> currTime<span class="hl sym">;</span> <span class="hl slc">// update last valid rising edge time</span>
+<span class="hl sym">}</span>
+
+<span class="hl slc">// LeftEdgeDetected: Input Capture, takes nothing, returns nothing</span>
+<span class="hl kwb">void</span> interrupt _Vec_tim0ch4 <span class="hl kwd">LeftEdgeDetected</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">){</span>
+
+	<span class="hl slc">// Schedule output compare to trigger when signal out of range</span>
+	TIM0_TC6 <span class="hl sym">=</span> TIM0_TCNT <span class="hl sym">+</span> OC_PERIOD<span class="hl sym">;</span>
+	<span class="hl slc">// Turn on OC interrupt</span>
+	TIM0_TIE <span class="hl sym">|=</span> _S12_C6I<span class="hl sym">;</span>
+
+	<span class="hl slc">// Figure out period/high time</span>
+	<span class="hl kwd">HandleLeftEdge</span><span class="hl sym">();</span>
+
+	<span class="hl slc">// Clear flag</span>
+	TIM0_TFLG1 <span class="hl sym">=</span> _S12_C4F<span class="hl sym">;</span>
+<span class="hl sym">}</span>
+
+<span class="hl slc">// RightEdgeDetected: Input Capture, takes nothing, returns nothing</span>
+<span class="hl kwb">void</span> interrupt _Vec_tim0ch5 <span class="hl kwd">RightEdgeDetected</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">){</span>
+
+	<span class="hl slc">// Schedule output compare to trigger when signal out of range</span>
+	TIM0_TC7 <span class="hl sym">=</span> TIM0_TCNT <span class="hl sym">+</span> OC_PERIOD<span class="hl sym">;</span>
+	<span class="hl slc">// Turn on OC interrupt</span>
+	TIM0_TIE <span class="hl sym">|=</span> _S12_C7I<span class="hl sym">;</span>
+
+	<span class="hl slc">// Figure out period/high time</span>
+	<span class="hl kwd">HandleRightEdge</span><span class="hl sym">();</span>
+
+	<span class="hl slc">// Clear flag</span>
+	TIM0_TFLG1 <span class="hl sym">=</span> _S12_C5F<span class="hl sym">;</span>
+<span class="hl sym">}</span>
+
+<span class="hl slc">// Output Compare: Left beacon signal lost</span>
+<span class="hl kwb">void</span> interrupt _Vec_tim0ch6 <span class="hl kwd">LeftBeaconLost</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">){</span>
+
+	<span class="hl slc">// Clear flag</span>
+	TIM0_TFLG1 <span class="hl sym">=</span> _S12_C6F<span class="hl sym">;</span>
+	<span class="hl slc">// Turn off OC interrupt</span>
+	TIM0_TIE <span class="hl sym">&amp;= ~</span>_S12_C6I<span class="hl sym">;</span>
+
+	<span class="hl slc">// Get ready for next signal detection</span>
+	leftPeriod <span class="hl sym">=</span> leftHighTime <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+<span class="hl sym">}</span>
+
+<span class="hl slc">// Output Compare: Right beacon signal lost</span>
+<span class="hl kwb">void</span> interrupt _Vec_tim0ch7 <span class="hl kwd">RightBeaconLost</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">){</span>
+
+	<span class="hl slc">// Clear flag</span>
+	TIM0_TFLG1 <span class="hl sym">=</span> _S12_C7F<span class="hl sym">;</span>
+	<span class="hl slc">// Turn off OC interrupt</span>
+	TIM0_TIE <span class="hl sym">&amp;= ~</span>_S12_C7I<span class="hl sym">;</span>
+
+	<span class="hl slc">// Get ready for next signal detection</span>
+	rightPeriod <span class="hl sym">=</span> rightHighTime <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+<span class="hl sym">}</span>
+</pre>
+</body>
+</html>
+<!--HTML generated by highlight 2.13, http://www.andre-simon.de/-->

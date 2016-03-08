@@ -1,0 +1,762 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<title>MainPIC.c</title>
+</head>
+<body style="background-color:#eeeeee">
+<pre style="color:#000000; background-color:#eeeeee; font-size:8pt; font-family:'Courier New';"><span style="color:#0080c0; font-weight:bold">#define MAIN_TEST</span>
+<span style="color:#f27900">//#define	CONTROL_ON</span>
+
+<span style="color:#ff8000">/*</span>
+<span style="color:#ff8000">Main PIC Module</span>
+<span style="color:#ff8000"></span>
+<span style="color:#ff8000">This module:</span>
+<span style="color:#ff8000">(1) Receives RFID card swipes from the Security PIC</span>
+<span style="color:#ff8000">(2) Handles all the boat I/O</span>
+<span style="color:#ff8000">(3) Sends/receives XBee messages via UART</span>
+<span style="color:#ff8000">(4) Runs the gameplay, transmit, and receive state machines</span>
+<span style="color:#ff8000"></span>
+<span style="color:#ff8000">*/</span>
+
+<span style="color:#ff8000">/*   PINOUT FOR MAIN PIC</span>
+<span style="color:#ff8000">******************************************</span>
+<span style="color:#ff8000">1   MLCR       |MCLR  B7|  PGD	        40</span>
+<span style="color:#ff8000">2   Analog In  |A0    B6|  PGC          39</span>
+<span style="color:#ff8000">3   OSC2       |A1    B5|  Servo        38</span>
+<span style="color:#ff8000">4              |A2    B4|               37</span>
+<span style="color:#ff8000">5              |A3    B3|  			    36</span>
+<span style="color:#ff8000">6              |A4    B2|               35</span>
+<span style="color:#ff8000">7   SS		   |A5    B1|               34</span>
+<span style="color:#ff8000">8  			   |E0    B0|  		        33</span>
+<span style="color:#ff8000">9			   |E1   VDD|  +5V          32</span>
+<span style="color:#ff8000">10 	TX         |E2   VSS|  GND  		31</span>
+<span style="color:#ff8000">11  +5V        |VDD   D7|  		        30</span>
+<span style="color:#ff8000">12  GND        |VSS   D6|               29</span>
+<span style="color:#ff8000">13  OSC1       |OSC1  D5|  DIR-R        28</span>
+<span style="color:#ff8000">14  OSC2       |OSC2  D4|  DIR-L        27</span>
+<span style="color:#ff8000">15             |C0    C7|  XBEE TX		26</span>
+<span style="color:#ff8000">16  PWM-R      |C1    C6|  XBEE RX      25</span>
+<span style="color:#ff8000">17  PWM-L	   |C2    C5|               24</span>
+<span style="color:#ff8000">18  SPI-SCK	   |C3    C4|  SPI-SDI      23</span>
+<span style="color:#ff8000">19  DEBUG	   |D0    D3|  DEBUG        22</span>
+<span style="color:#ff8000">20 	DEBUG      |D1    D2|  DEBUG	    21</span>
+<span style="color:#ff8000">*/</span>
+
+<span style="color:#f27900">//#include &lt;pic16f777.h&gt;</span>
+<span style="color:#0080c0; font-weight:bold">#include &lt;stdio.h&gt;</span>
+<span style="color:#0080c0; font-weight:bold">#include &lt;htc.h&gt;</span>
+<span style="color:#0080c0; font-weight:bold">#define _LEGACY_HEADERS</span>
+<span style="color:#0080c0; font-weight:bold">#include</span> <span style="color:#0000ff">&quot;BITDEFS.h&quot;</span><span style="color:#0080c0; font-weight:bold"></span>
+<span style="color:#0080c0; font-weight:bold">#include</span> <span style="color:#0000ff">&quot;TimerPIC.h&quot;</span><span style="color:#0080c0; font-weight:bold"></span>
+<span style="color:#0080c0; font-weight:bold">#include</span> <span style="color:#0000ff">&quot;SCIMessage.h&quot;</span><span style="color:#0080c0; font-weight:bold"></span>
+<span style="color:#0080c0; font-weight:bold">#include</span> <span style="color:#0000ff">&quot;Communication.h&quot;</span><span style="color:#0080c0; font-weight:bold"></span>
+<span style="color:#0080c0; font-weight:bold">#include</span> <span style="color:#0000ff">&quot;Messages.h&quot;</span><span style="color:#0080c0; font-weight:bold"></span>
+<span style="color:#0080c0; font-weight:bold">#include</span> <span style="color:#0000ff">&quot;MainIO.h&quot;</span><span style="color:#0080c0; font-weight:bold"></span>
+<span style="color:#0080c0; font-weight:bold">#include</span> <span style="color:#0000ff">&quot;TimerNumber.h&quot;</span><span style="color:#0080c0; font-weight:bold"></span>
+
+<span style="color:#0080c0; font-weight:bold">#define		TURN_THRESHOLD	5</span>
+<span style="color:#0080c0; font-weight:bold">#define		TURN_OFFSET		5</span>
+
+<span style="color:#0080c0; font-weight:bold">#ifdef SECURITY_TEST</span>
+<span style="color:#004466">__CONFIG</span><span style="color:#ff0080; font-weight:bold">(</span>UNPROTECT <span style="color:#ff0080; font-weight:bold">&amp;</span> WDTDIS <span style="color:#ff0080; font-weight:bold">&amp;</span> PWRTEN <span style="color:#ff0080; font-weight:bold">&amp;</span> HS<span style="color:#ff0080; font-weight:bold">);</span>
+<span style="color:#f27900">//__CONFIG(CP_OFF &amp; WDTE_OFF &amp; PWRTE_ON &amp; FOSC_HS );</span>
+<span style="color:#0080c0; font-weight:bold">#endif</span>
+
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">InitSPI</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">);</span>
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">SPIReceive</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">);</span>
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">GetReply</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">);</span>
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">HandleReceivedMessage</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">);</span>
+<span style="color:#8080c0; font-weight:bold">unsigned char</span> <span style="color:#004466">CalculateLeftSpeed</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">unsigned char</span> Speed<span style="color:#ff0080; font-weight:bold">,</span> <span style="color:#8080c0; font-weight:bold">unsigned char</span> Direction<span style="color:#ff0080; font-weight:bold">,</span> <span style="color:#8080c0; font-weight:bold">unsigned char</span> Heading<span style="color:#ff0080; font-weight:bold">);</span>
+<span style="color:#8080c0; font-weight:bold">unsigned char</span> <span style="color:#004466">CalculateRightSpeed</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">unsigned char</span> Speed<span style="color:#ff0080; font-weight:bold">,</span> <span style="color:#8080c0; font-weight:bold">unsigned char</span> Direction<span style="color:#ff0080; font-weight:bold">,</span> <span style="color:#8080c0; font-weight:bold">unsigned char</span> Heading<span style="color:#ff0080; font-weight:bold">);</span>
+
+<span style="color:#0080c0">typedef</span> <span style="color:#8080c0; font-weight:bold">enum</span> <span style="color:#ff0080; font-weight:bold">{</span>
+	GAME_IDLE<span style="color:#ff0080; font-weight:bold">,</span>
+	LISTEN_FOR_TEAMMATE<span style="color:#ff0080; font-weight:bold">,</span>
+	WAITING_FOR_ACK<span style="color:#ff0080; font-weight:bold">,</span>
+	BROADCAST_TEAM_MESSAGE<span style="color:#ff0080; font-weight:bold">,</span>
+	GAME_ON
+<span style="color:#ff0080; font-weight:bold">}</span> GameState_t<span style="color:#ff0080; font-weight:bold">;</span>
+
+<span style="color:#f27900">// Speed messages from bike</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> RefDirection <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> RefHeading <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">90</span><span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> Speed<span style="color:#ff0080; font-weight:bold">;</span>
+
+<span style="color:#f27900">// Closed loop speed control</span>
+<span style="color:#8080c0; font-weight:bold">static signed int</span> RefSpeed <span style="color:#ff0080; font-weight:bold">= -</span><span style="color:#800080; font-weight:bold">45</span><span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> InputDirection<span style="color:#ff0080; font-weight:bold">;</span>
+
+<span style="color:#f27900">// SPI Comm</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> SSPArray<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">6</span><span style="color:#ff0080; font-weight:bold">];</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> counter<span style="color:#ff0080; font-weight:bold">;</span>
+
+<span style="color:#f27900">// UART XBee Comm</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> ReceivedData<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">10</span><span style="color:#ff0080; font-weight:bold">];</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">10</span><span style="color:#ff0080; font-weight:bold">];</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> DataLength<span style="color:#ff0080; font-weight:bold">;</span>
+
+<span style="color:#f27900">// Gameplay state machine</span>
+<span style="color:#8080c0; font-weight:bold">static</span> Swipe_t RFIDScanned <span style="color:#ff0080; font-weight:bold">=</span> NO_SWIPE<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> ColorSwipeFlag <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static</span> Message_t CurrentMessage <span style="color:#ff0080; font-weight:bold">=</span> NoMessage<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> TeamColor <span style="color:#ff0080; font-weight:bold">=</span> NO_COLOR<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static</span> GameState_t GameState <span style="color:#ff0080; font-weight:bold">=</span> GAME_IDLE<span style="color:#ff0080; font-weight:bold">;</span>
+
+<span style="color:#0080c0; font-weight:bold">#ifdef MAIN_TEST</span>
+<span style="color:#f27900">// Rising edge</span>
+
+<span style="color:#8080c0; font-weight:bold">void</span> interrupt <span style="color:#004466">Security_ISR</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">) {</span>
+  <span style="color:#f27900">// If interrupt was due to the timer subsystem</span>
+	<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>TMR0IE <span style="color:#ff0080; font-weight:bold">&amp;&amp;</span> TMR0IF<span style="color:#ff0080; font-weight:bold">)</span>
+    <span style="color:#f27900">//</span>
+		<span style="color:#004466">TimerPIC_ISR</span><span style="color:#ff0080; font-weight:bold">();</span>
+  <span style="color:#f27900">// If interrupt was due to the SPI subsystem</span>
+	<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>SSPIE <span style="color:#ff0080; font-weight:bold">&amp;&amp;</span> SSPIF<span style="color:#ff0080; font-weight:bold">) {</span>
+    <span style="color:#f27900">//  Call SPIReceive to process the message</span>
+		<span style="color:#004466">SPIReceive</span><span style="color:#ff0080; font-weight:bold">();</span>
+    <span style="color:#f27900">// Turn off the SPI interrupt flag</span>
+		SSPIF <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#ff0080; font-weight:bold">}</span>
+  <span style="color:#f27900">// If interrupt was due to CCP3</span>
+	<span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>CCP3IF<span style="color:#ff0080; font-weight:bold">)</span>
+    <span style="color:#f27900">// Call the OutputCompareISR function</span>
+		<span style="color:#004466">OutputCompareISR</span><span style="color:#ff0080; font-weight:bold">();</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+<span style="color:#0080c0; font-weight:bold">#endif</span>
+
+
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">InitSPI</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">) {</span>
+
+	<span style="color:#f27900">// Configure SPI port</span>
+	<span style="color:#f27900">// 0xxxxxxx = No write collision detect</span>
+	WCOL <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#f27900">// x0xxxxxx = No receive overflow indicator</span>
+	SSPOV <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#f27900">// xx1xxxxx = Enable serial port, SCK, SDO, SDI as serial pins</span>
+	SSPEN <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#f27900">// xxx1xxxx = Clock idles high</span>
+	CKP <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#f27900">// xxxx0100 = SPI Slave, SS pin control enabled, Use Timer2/2</span>
+	SSPM3 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+	SSPM2 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+	SSPM1 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+	SSPM0 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+	<span style="color:#ff8000">/* SPI status register</span>
+<span style="color:#ff8000">	0xxxxxxx = Data sampled in middle of output</span>
+<span style="color:#ff8000">	x0xxxxxx = Data transmitted on falling edge of SCK</span>
+<span style="color:#ff8000">	xxXXXXXX = Read only</span>
+<span style="color:#ff8000">	*/</span>
+
+	SSPSTAT <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+	SSPIE <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>		<span style="color:#f27900">// Turn On SPI interrupt</span>
+  	SSPBUF <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>		<span style="color:#f27900">// Clear buffer</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#f27900">// Get RFID scan info</span>
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">SPIReceive</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">){</span>
+
+    <span style="color:#f27900">// If SPI buffer is full</span>
+	  <span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>BF<span style="color:#ff0080; font-weight:bold">){</span>
+      <span style="color:#f27900">// Store the buffer value into SSPArray at the appropriate index</span>
+      SSPArray<span style="color:#ff0080; font-weight:bold">[</span>counter<span style="color:#ff0080; font-weight:bold">] =</span> SSPBUF<span style="color:#ff0080; font-weight:bold">;</span>
+      <span style="color:#f27900">// Increment the index by one</span>
+      counter<span style="color:#ff0080; font-weight:bold">++;</span>
+	<span style="color:#ff0080; font-weight:bold">}</span>
+
+  <span style="color:#f27900">// If the index is greater than 6, we have received all 6 bytes</span>
+	<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>counter <span style="color:#ff0080; font-weight:bold">&gt;=</span> <span style="color:#800080; font-weight:bold">6</span><span style="color:#ff0080; font-weight:bold">) {</span>
+
+    <span style="color:#f27900">// If the Swiped Card is not one of the Team Color Cards</span>
+		<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>SSPArray<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">] ==</span> <span style="color:#800080; font-weight:bold">0x9E</span><span style="color:#ff0080; font-weight:bold">){</span>
+      <span style="color:#f27900">// Set the ColorSwipeFlag to Zero</span>
+      ColorSwipeFlag <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+		<span style="color:#ff0080; font-weight:bold">}</span>
+
+		<span style="color:#f27900">// Check the 3rd byte of SSPArray, and see what it matches</span>
+		<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>SSPArray<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">] ==</span> <span style="color:#800080; font-weight:bold">0x47</span><span style="color:#ff0080; font-weight:bold">)</span>
+			<span style="color:#f27900">// Atoll #1, Card 1: Set RFIDScanned to ATOLL1_SWIPE</span>
+			RFIDScanned <span style="color:#ff0080; font-weight:bold">=</span> ATOLL1_SWIPE<span style="color:#ff0080; font-weight:bold">;</span>
+		<span style="color:#bb7977; font-weight:bold">else if</span> <span style="color:#ff0080; font-weight:bold">(</span>SSPArray<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">] ==</span> <span style="color:#800080; font-weight:bold">0x66</span><span style="color:#ff0080; font-weight:bold">)</span>
+			<span style="color:#f27900">// Atoll #1, Card 2: Set RFIDScanned to ATOLL1_SWIPE</span>
+			RFIDScanned <span style="color:#ff0080; font-weight:bold">=</span> ATOLL1_SWIPE<span style="color:#ff0080; font-weight:bold">;</span>
+		<span style="color:#bb7977; font-weight:bold">else if</span> <span style="color:#ff0080; font-weight:bold">(</span>SSPArray<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">] ==</span> <span style="color:#800080; font-weight:bold">0xC8</span><span style="color:#ff0080; font-weight:bold">)</span>
+			<span style="color:#f27900">// Atoll #2, Card 1: Set RFIDScanned to ATOLL2_SWIPE</span>
+			RFIDScanned <span style="color:#ff0080; font-weight:bold">=</span> ATOLL2_SWIPE<span style="color:#ff0080; font-weight:bold">;</span>
+		<span style="color:#bb7977; font-weight:bold">else if</span> <span style="color:#ff0080; font-weight:bold">(</span>SSPArray<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">] ==</span> <span style="color:#800080; font-weight:bold">0xE0</span><span style="color:#ff0080; font-weight:bold">)</span>
+			<span style="color:#f27900">// Atoll #2, Card 2: Set RFIDScanned to ATOLL2_SWIPE</span>
+			RFIDScanned <span style="color:#ff0080; font-weight:bold">=</span> ATOLL2_SWIPE<span style="color:#ff0080; font-weight:bold">;</span>
+		<span style="color:#bb7977; font-weight:bold">else if</span> <span style="color:#ff0080; font-weight:bold">(</span>SSPArray<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">] ==</span> <span style="color:#800080; font-weight:bold">0x36</span><span style="color:#ff0080; font-weight:bold">)</span>
+			<span style="color:#f27900">// Atoll #3, Card 1: Set RFIDScanned to ATOLL3_SWIPE</span>
+			RFIDScanned <span style="color:#ff0080; font-weight:bold">=</span> ATOLL3_SWIPE<span style="color:#ff0080; font-weight:bold">;</span>
+		<span style="color:#bb7977; font-weight:bold">else if</span> <span style="color:#ff0080; font-weight:bold">(</span>SSPArray<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">] ==</span> <span style="color:#800080; font-weight:bold">0x31</span><span style="color:#ff0080; font-weight:bold">)</span>
+			<span style="color:#f27900">// Atoll #3, Card 2: Set RFIDScanned to ATOLL3_SWIPE</span>
+			RFIDScanned <span style="color:#ff0080; font-weight:bold">=</span> ATOLL3_SWIPE<span style="color:#ff0080; font-weight:bold">;</span>
+		<span style="color:#bb7977; font-weight:bold">else if</span> <span style="color:#ff0080; font-weight:bold">(</span>SSPArray<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">] ==</span> <span style="color:#800080; font-weight:bold">0xF5</span><span style="color:#ff0080; font-weight:bold">)</span>
+			<span style="color:#f27900">// Atoll #4, Card 1: Set RFIDScanned to ATOLL4_SWIPE</span>
+			RFIDScanned <span style="color:#ff0080; font-weight:bold">=</span> ATOLL4_SWIPE<span style="color:#ff0080; font-weight:bold">;</span>
+		<span style="color:#bb7977; font-weight:bold">else if</span> <span style="color:#ff0080; font-weight:bold">(</span>SSPArray<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">] ==</span> <span style="color:#800080; font-weight:bold">0xF0</span><span style="color:#ff0080; font-weight:bold">)</span>
+			<span style="color:#f27900">// Atoll #4, Card 2: Set RFIDScanned to ATOLL4_SWIPE</span>
+			RFIDScanned <span style="color:#ff0080; font-weight:bold">=</span> ATOLL4_SWIPE<span style="color:#ff0080; font-weight:bold">;</span>
+		<span style="color:#bb7977; font-weight:bold">else if</span> <span style="color:#ff0080; font-weight:bold">(</span>SSPArray<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">] ==</span> <span style="color:#800080; font-weight:bold">0x5E</span><span style="color:#ff0080; font-weight:bold">)</span>
+			<span style="color:#f27900">// Atoll #5, Card 1: Set RFIDScanned to ATOLL5_SWIPE</span>
+			RFIDScanned <span style="color:#ff0080; font-weight:bold">=</span> ATOLL5_SWIPE<span style="color:#ff0080; font-weight:bold">;</span>
+		<span style="color:#bb7977; font-weight:bold">else if</span> <span style="color:#ff0080; font-weight:bold">(</span>SSPArray<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">] ==</span> <span style="color:#800080; font-weight:bold">0x6A</span><span style="color:#ff0080; font-weight:bold">)</span>
+			<span style="color:#f27900">// Atoll #5, Card 2: Set RFIDScanned to ATOLL5_SWIPE</span>
+			RFIDScanned <span style="color:#ff0080; font-weight:bold">=</span> ATOLL5_SWIPE<span style="color:#ff0080; font-weight:bold">;</span>
+    <span style="color:#f27900">// If State is GAME_IDLE or GAME_ON and Red Tag was Swiped</span>
+		<span style="color:#bb7977; font-weight:bold">else if</span> <span style="color:#ff0080; font-weight:bold">(</span>SSPArray<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">] ==</span> <span style="color:#800080; font-weight:bold">0xEC</span> <span style="color:#ff0080; font-weight:bold">&amp;&amp; (</span>GameState <span style="color:#ff0080; font-weight:bold">==</span> GAME_IDLE <span style="color:#ff0080; font-weight:bold">||</span> GameState <span style="color:#ff0080; font-weight:bold">==</span> GAME_ON<span style="color:#ff0080; font-weight:bold">)){</span>
+			<span style="color:#f27900">// Red Team Tag</span>
+			RFIDScanned <span style="color:#ff0080; font-weight:bold">=</span> RED_SWIPE<span style="color:#ff0080; font-weight:bold">;</span>
+			<span style="color:#f27900">// Set TeamColor to RED and ColorSwipeFlag to 1</span>
+      TeamColor <span style="color:#ff0080; font-weight:bold">=</span> RED<span style="color:#ff0080; font-weight:bold">;</span>
+			ColorSwipeFlag <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+      <span style="color:#f27900">// Turn on the RED debug LED</span>
+			RD2 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+		<span style="color:#ff0080; font-weight:bold">}</span>
+    <span style="color:#f27900">// If State is GAME_IDLE or GAME_ON and Green Tag was Swiped</span>
+		<span style="color:#bb7977; font-weight:bold">else if</span> <span style="color:#ff0080; font-weight:bold">(</span>SSPArray<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">] ==</span> <span style="color:#800080; font-weight:bold">0x5A</span> <span style="color:#ff0080; font-weight:bold">&amp;&amp; (</span>GameState <span style="color:#ff0080; font-weight:bold">==</span> GAME_IDLE <span style="color:#ff0080; font-weight:bold">||</span> GameState <span style="color:#ff0080; font-weight:bold">==</span> GAME_ON<span style="color:#ff0080; font-weight:bold">)){</span>
+			<span style="color:#f27900">// Green Team Tag</span>
+			RFIDScanned <span style="color:#ff0080; font-weight:bold">=</span> GREEN_SWIPE<span style="color:#ff0080; font-weight:bold">;</span>
+      <span style="color:#f27900">// Set TeamColor to GREEN and ColorSwipeFlag to 1</span>
+			TeamColor <span style="color:#ff0080; font-weight:bold">=</span> GREEN<span style="color:#ff0080; font-weight:bold">;</span>
+			ColorSwipeFlag <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+      <span style="color:#f27900">// Turn on the Green Debug LED</span>
+			RD3 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+		<span style="color:#ff0080; font-weight:bold">}</span>
+
+    <span style="color:#f27900">// If White Card was scanned</span>
+		<span style="color:#bb7977; font-weight:bold">else if</span> <span style="color:#ff0080; font-weight:bold">(</span>SSPArray<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">] ==</span> <span style="color:#800080; font-weight:bold">0x06</span><span style="color:#ff0080; font-weight:bold">){</span>
+			<span style="color:#f27900">// &quot;White&quot; Team Tag</span>
+			RFIDScanned <span style="color:#ff0080; font-weight:bold">=</span> WHITE_SWIPE<span style="color:#ff0080; font-weight:bold">;</span>
+      <span style="color:#f27900">// Set team Color to No Color</span>
+			TeamColor <span style="color:#ff0080; font-weight:bold">=</span> NO_COLOR<span style="color:#ff0080; font-weight:bold">;</span>
+      <span style="color:#f27900">// Turn off all Team Color LEDs</span>
+			RD2 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+			RD3 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+      <span style="color:#f27900">// Set ColorSwipeFlag to 1</span>
+			ColorSwipeFlag <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+      <span style="color:#f27900">// Reset Servos to the NO_FLAG position</span>
+			<span style="color:#004466">SetServo</span><span style="color:#ff0080; font-weight:bold">(</span>NO_FLAG<span style="color:#ff0080; font-weight:bold">);</span>
+		<span style="color:#ff0080; font-weight:bold">}</span>
+
+		<span style="color:#bb7977; font-weight:bold">else</span><span style="color:#ff0080; font-weight:bold">{</span>
+
+		ColorSwipeFlag <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+		<span style="color:#ff0080; font-weight:bold">}</span>
+
+    <span style="color:#f27900">// If RFIDcard scanned was not a color flag</span>
+		<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(!(</span>RFIDScanned <span style="color:#ff0080; font-weight:bold">==</span> RED_SWIPE <span style="color:#ff0080; font-weight:bold">||</span> RFIDScanned <span style="color:#ff0080; font-weight:bold">==</span> GREEN_SWIPE <span style="color:#ff0080; font-weight:bold">||</span> RFIDScanned <span style="color:#ff0080; font-weight:bold">==</span> WHITE_SWIPE<span style="color:#ff0080; font-weight:bold">)){</span>
+			<span style="color:#f27900">// Send request atoll capture message to the Atoll</span>
+			DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">] =</span> TeamColor<span style="color:#ff0080; font-weight:bold">;</span>
+			DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">] =</span> RFIDScanned<span style="color:#ff0080; font-weight:bold">;</span>	<span style="color:#f27900">// Atoll number</span>
+			DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">] =</span> SSPArray<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">];</span>	<span style="color:#f27900">// serial #1</span>
+			DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">3</span><span style="color:#ff0080; font-weight:bold">] =</span> SSPArray<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">];</span>
+			DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">4</span><span style="color:#ff0080; font-weight:bold">] =</span> SSPArray<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">];</span>
+			DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">5</span><span style="color:#ff0080; font-weight:bold">] =</span> SSPArray<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">3</span><span style="color:#ff0080; font-weight:bold">];</span>
+			DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">6</span><span style="color:#ff0080; font-weight:bold">] =</span> SSPArray<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">4</span><span style="color:#ff0080; font-weight:bold">];</span>
+			DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">7</span><span style="color:#ff0080; font-weight:bold">] =</span> SSPArray<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">5</span><span style="color:#ff0080; font-weight:bold">];</span>
+			<span style="color:#004466">CreatePacket</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">8</span><span style="color:#ff0080; font-weight:bold">,</span> BROADCAST_MSB<span style="color:#ff0080; font-weight:bold">,</span> BROADCAST_LSB<span style="color:#ff0080; font-weight:bold">,</span>BROADCAST_MESSAGE<span style="color:#ff0080; font-weight:bold">,</span> REQ_CAPTURE<span style="color:#ff0080; font-weight:bold">,</span> DataToSend<span style="color:#ff0080; font-weight:bold">);</span>
+		<span style="color:#ff0080; font-weight:bold">}</span>
+
+		counter <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+	<span style="color:#ff0080; font-weight:bold">}</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#f27900">// Control loop</span>
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">UpdateSpeed</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">) {</span>
+
+	<span style="color:#8080c0; font-weight:bold">static signed int</span> WheelInput<span style="color:#ff0080; font-weight:bold">,</span> Delta<span style="color:#ff0080; font-weight:bold">,</span> uSpeed<span style="color:#ff0080; font-weight:bold">,</span> WheelMag<span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#8080c0; font-weight:bold">static unsigned char</span> left_speed<span style="color:#ff0080; font-weight:bold">,</span> right_speed<span style="color:#ff0080; font-weight:bold">,</span> Output<span style="color:#ff0080; font-weight:bold">,</span> Value<span style="color:#ff0080; font-weight:bold">,</span> LastValue<span style="color:#ff0080; font-weight:bold">;</span>
+
+	<span style="color:#f27900">// Update our speed every CONTROL_PERIOD</span>
+	<span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#004466">TimerPIC_IsTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span>CONTROL_TIMER<span style="color:#ff0080; font-weight:bold">) ==</span> TimerPIC_EXPIRED<span style="color:#ff0080; font-weight:bold">){</span>
+			<span style="color:#004466">TimerPIC_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span>CONTROL_TIMER<span style="color:#ff0080; font-weight:bold">,</span> CONTROL_PERIOD<span style="color:#ff0080; font-weight:bold">);</span>
+			Value <span style="color:#ff0080; font-weight:bold">= (</span><span style="color:#8080c0; font-weight:bold">unsigned char</span><span style="color:#ff0080; font-weight:bold">)(</span><span style="color:#800080; font-weight:bold">51</span><span style="color:#ff0080; font-weight:bold">*(</span><span style="color:#8080c0; font-weight:bold">unsigned int</span><span style="color:#ff0080; font-weight:bold">)</span><span style="color:#004466">ReadADC</span><span style="color:#ff0080; font-weight:bold">()/</span><span style="color:#800080; font-weight:bold">41</span> <span style="color:#ff0080; font-weight:bold">-</span> <span style="color:#800080; font-weight:bold">30</span><span style="color:#ff0080; font-weight:bold">);</span>
+			<span style="color:#f27900">//SetDuty(Value, Value);</span>
+			<span style="color:#f27900">//SetDuty((unsigned int)100*Value/255, (unsigned int)100*Value/255);</span>
+			<span style="color:#f27900">// Overflow</span>
+			WheelInput <span style="color:#ff0080; font-weight:bold">= (</span><span style="color:#8080c0; font-weight:bold">signed int</span><span style="color:#ff0080; font-weight:bold">)((((</span><span style="color:#8080c0; font-weight:bold">unsigned char</span><span style="color:#ff0080; font-weight:bold">)</span>Value <span style="color:#ff0080; font-weight:bold">-</span> LastValue<span style="color:#ff0080; font-weight:bold">)*</span><span style="color:#800080; font-weight:bold">75</span><span style="color:#ff0080; font-weight:bold">)/(</span><span style="color:#800080; font-weight:bold">512</span><span style="color:#ff0080; font-weight:bold">));</span> <span style="color:#f27900">// Get wheel speed in RPM/2</span>
+			<span style="color:#f27900">// Don't respond to the noise</span>
+			<span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">((</span><span style="color:#8080c0; font-weight:bold">signed int</span><span style="color:#ff0080; font-weight:bold">)</span>Value <span style="color:#ff0080; font-weight:bold">-</span> LastValue <span style="color:#ff0080; font-weight:bold">&lt; -</span><span style="color:#800080; font-weight:bold">127</span><span style="color:#ff0080; font-weight:bold">)</span>
+				WheelInput <span style="color:#ff0080; font-weight:bold">= -</span>WheelInput<span style="color:#ff0080; font-weight:bold">;</span>
+			<span style="color:#004466">SetDuty</span><span style="color:#ff0080; font-weight:bold">((</span><span style="color:#8080c0; font-weight:bold">unsigned char</span><span style="color:#ff0080; font-weight:bold">)</span>WheelInput<span style="color:#ff0080; font-weight:bold">, (</span><span style="color:#8080c0; font-weight:bold">unsigned char</span><span style="color:#ff0080; font-weight:bold">)</span>WheelInput<span style="color:#ff0080; font-weight:bold">);</span>
+			<span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>WheelInput <span style="color:#ff0080; font-weight:bold">&lt;</span> <span style="color:#800080; font-weight:bold">5</span> <span style="color:#ff0080; font-weight:bold">&amp;&amp;</span> WheelInput <span style="color:#ff0080; font-weight:bold">&gt;-</span><span style="color:#800080; font-weight:bold">5</span><span style="color:#ff0080; font-weight:bold">)</span>
+				WheelInput <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+			<span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>WheelInput <span style="color:#ff0080; font-weight:bold">&gt;</span> <span style="color:#800080; font-weight:bold">100</span> <span style="color:#ff0080; font-weight:bold">||</span> WheelInput <span style="color:#ff0080; font-weight:bold">&lt; -</span><span style="color:#800080; font-weight:bold">100</span><span style="color:#ff0080; font-weight:bold">)</span>
+				WheelInput<span style="color:#ff0080; font-weight:bold">++;</span>
+			LastValue <span style="color:#ff0080; font-weight:bold">=</span> Value<span style="color:#ff0080; font-weight:bold">;</span>	<span style="color:#f27900">// Update the last A/D reading</span>
+			Delta <span style="color:#ff0080; font-weight:bold">= (</span>RefSpeed <span style="color:#ff0080; font-weight:bold">-</span> WheelInput<span style="color:#ff0080; font-weight:bold">);</span>	<span style="color:#f27900">// Find the error in speed</span>
+			<span style="color:#f27900">// Turn off control at low speeds</span>
+			<span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>RefSpeed <span style="color:#ff0080; font-weight:bold">&lt;</span> <span style="color:#800080; font-weight:bold">40</span> <span style="color:#ff0080; font-weight:bold">&amp;&amp;</span> RefSpeed<span style="color:#ff0080; font-weight:bold">&gt; -</span><span style="color:#800080; font-weight:bold">40</span><span style="color:#ff0080; font-weight:bold">)</span>
+				Delta <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+			uSpeed <span style="color:#ff0080; font-weight:bold">=</span> RefSpeed <span style="color:#ff0080; font-weight:bold">+</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">*(</span>Delta<span style="color:#ff0080; font-weight:bold">)/</span><span style="color:#800080; font-weight:bold">20</span><span style="color:#ff0080; font-weight:bold">;</span>	<span style="color:#f27900">// Combine feedforward and feedback terms</span>
+			InputDirection <span style="color:#ff0080; font-weight:bold">= (</span>uSpeed <span style="color:#ff0080; font-weight:bold">&gt;=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">)</span>?<span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">):(</span><span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">);</span>		<span style="color:#f27900">// Figure out what direction the command is in</span>
+			Output <span style="color:#ff0080; font-weight:bold">= (</span>uSpeed <span style="color:#ff0080; font-weight:bold">&gt;=</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">)</span>?<span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">unsigned char</span><span style="color:#ff0080; font-weight:bold">)</span>uSpeed<span style="color:#ff0080; font-weight:bold">:(</span><span style="color:#8080c0; font-weight:bold">unsigned char</span><span style="color:#ff0080; font-weight:bold">)(-</span>uSpeed<span style="color:#ff0080; font-weight:bold">);</span>	<span style="color:#f27900">// Convert back to an unsigned char</span>
+			left_speed <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#004466">CalculateLeftSpeed</span><span style="color:#ff0080; font-weight:bold">(</span>Output<span style="color:#ff0080; font-weight:bold">,</span> InputDirection<span style="color:#ff0080; font-weight:bold">,</span> RefHeading<span style="color:#ff0080; font-weight:bold">);</span>
+			right_speed <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#004466">CalculateRightSpeed</span><span style="color:#ff0080; font-weight:bold">(</span>Output<span style="color:#ff0080; font-weight:bold">,</span> InputDirection<span style="color:#ff0080; font-weight:bold">,</span> RefHeading<span style="color:#ff0080; font-weight:bold">);</span>
+			<span style="color:#f27900">//SetDuty(left_speed, right_speed);</span>
+		<span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#f27900">// Check if we got a new message</span>
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">GetReply</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">) {</span>
+
+	<span style="color:#8080c0; font-weight:bold">static unsigned char</span> i<span style="color:#ff0080; font-weight:bold">,</span> length<span style="color:#ff0080; font-weight:bold">;</span>
+
+  <span style="color:#f27900">// If a new message has been completely received</span>
+	<span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#004466">CheckNewMessage</span><span style="color:#ff0080; font-weight:bold">() ==</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">) {</span>
+    <span style="color:#f27900">// Get the length of the message by calling ReturnDataSize</span>
+		length <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#004466">ReturnDataSize</span><span style="color:#ff0080; font-weight:bold">();</span>
+    <span style="color:#f27900">// For each byte in the message</span>
+		<span style="color:#bb7977; font-weight:bold">for</span> <span style="color:#ff0080; font-weight:bold">(</span>i<span style="color:#ff0080; font-weight:bold">=</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span> i<span style="color:#ff0080; font-weight:bold">&lt;</span>length<span style="color:#ff0080; font-weight:bold">;</span> i<span style="color:#ff0080; font-weight:bold">++) {</span>
+      <span style="color:#f27900">// Store the message into the ReceivedData array of the appropriate index</span>
+			ReceivedData<span style="color:#ff0080; font-weight:bold">[</span>i<span style="color:#ff0080; font-weight:bold">] =</span> <span style="color:#004466">QueryMessage</span><span style="color:#ff0080; font-weight:bold">(</span>i<span style="color:#ff0080; font-weight:bold">);</span>
+		<span style="color:#ff0080; font-weight:bold">}</span>
+    <span style="color:#f27900">// Set the CurrentMessage received to the output of ProcessMSG</span>
+		CurrentMessage <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#004466">ProcessMSG</span><span style="color:#ff0080; font-weight:bold">();</span>
+	<span style="color:#ff0080; font-weight:bold">}</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#8080c0; font-weight:bold">unsigned char</span> <span style="color:#004466">CalculateLeftSpeed</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">unsigned char</span> Speed<span style="color:#ff0080; font-weight:bold">,</span> <span style="color:#8080c0; font-weight:bold">unsigned char</span> Direction<span style="color:#ff0080; font-weight:bold">,</span> <span style="color:#8080c0; font-weight:bold">unsigned char</span> Heading<span style="color:#ff0080; font-weight:bold">) {</span>
+
+	<span style="color:#8080c0; font-weight:bold">unsigned char</span> returnSpeed<span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#8080c0; font-weight:bold">signed char</span> tempSpeed<span style="color:#ff0080; font-weight:bold">;</span>
+
+	<span style="color:#f27900">// If Heading is less than 90 and Speed greater than 0</span>
+	<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>Heading <span style="color:#ff0080; font-weight:bold">&lt;=</span> <span style="color:#800080; font-weight:bold">90</span> <span style="color:#ff0080; font-weight:bold">&amp;&amp;</span> Speed <span style="color:#ff0080; font-weight:bold">&gt;</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">) {</span>
+		<span style="color:#f27900">// tempSpeed = Speed - Speed*(90 - Heading)/90</span>
+		tempSpeed <span style="color:#ff0080; font-weight:bold">= ((</span><span style="color:#8080c0; font-weight:bold">signed char</span><span style="color:#ff0080; font-weight:bold">)</span>Speed <span style="color:#ff0080; font-weight:bold">- ((</span><span style="color:#8080c0; font-weight:bold">unsigned int</span><span style="color:#ff0080; font-weight:bold">)</span> Speed<span style="color:#ff0080; font-weight:bold">*(</span><span style="color:#800080; font-weight:bold">90</span> <span style="color:#ff0080; font-weight:bold">-</span> Heading<span style="color:#ff0080; font-weight:bold">))/</span><span style="color:#800080; font-weight:bold">90</span><span style="color:#ff0080; font-weight:bold">);</span>
+		<span style="color:#f27900">// If 90 - Heading is greater than the TURN_THRESHOLD</span>
+		<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">((</span><span style="color:#800080; font-weight:bold">90</span> <span style="color:#ff0080; font-weight:bold">-</span> Heading<span style="color:#ff0080; font-weight:bold">) &gt;</span> TURN_THRESHOLD<span style="color:#ff0080; font-weight:bold">)</span>
+			<span style="color:#f27900">// Subtract TURN_OFFSET from tempSpeed</span>
+			tempSpeed <span style="color:#ff0080; font-weight:bold">-=</span> TURN_OFFSET<span style="color:#ff0080; font-weight:bold">;</span>
+		<span style="color:#f27900">// If tempSpeed is negative</span>
+		<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>tempSpeed <span style="color:#ff0080; font-weight:bold">&lt;</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">)</span>
+			<span style="color:#f27900">// Set returnSpeed to 0</span>
+			returnSpeed <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+		<span style="color:#bb7977; font-weight:bold">else</span>
+			<span style="color:#f27900">// Otherwise tempSeed is returnSpeed</span>
+			returnSpeed <span style="color:#ff0080; font-weight:bold">=</span> tempSpeed<span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#ff0080; font-weight:bold">}</span>
+	<span style="color:#f27900">// else if Heading is greater than 90 and Speed is greater than 0</span>
+	<span style="color:#bb7977; font-weight:bold">else if</span> <span style="color:#ff0080; font-weight:bold">(</span>Heading <span style="color:#ff0080; font-weight:bold">&gt;</span> <span style="color:#800080; font-weight:bold">90</span> <span style="color:#ff0080; font-weight:bold">&amp;&amp;</span> Speed <span style="color:#ff0080; font-weight:bold">&gt;</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">) {</span>
+		<span style="color:#f27900">// returnSpeed = Speed + Speed*(Heading - 90)/90</span>
+		returnSpeed <span style="color:#ff0080; font-weight:bold">= (</span>Speed <span style="color:#ff0080; font-weight:bold">+ ((</span><span style="color:#8080c0; font-weight:bold">unsigned int</span><span style="color:#ff0080; font-weight:bold">)</span> Speed<span style="color:#ff0080; font-weight:bold">*(</span>Heading <span style="color:#ff0080; font-weight:bold">-</span> <span style="color:#800080; font-weight:bold">90</span><span style="color:#ff0080; font-weight:bold">))/</span><span style="color:#800080; font-weight:bold">90</span> <span style="color:#ff0080; font-weight:bold">);</span>
+		<span style="color:#f27900">// If Heading - 90 is greater than TURN_THRESHOLD</span>
+		<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">((</span>Heading <span style="color:#ff0080; font-weight:bold">-</span> <span style="color:#800080; font-weight:bold">90</span><span style="color:#ff0080; font-weight:bold">) &gt;</span> TURN_THRESHOLD<span style="color:#ff0080; font-weight:bold">)</span>
+			<span style="color:#f27900">// Subtract TURN_OFFSET from returnSpeed</span>
+			returnSpeed <span style="color:#ff0080; font-weight:bold">-=</span> TURN_OFFSET<span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#ff0080; font-weight:bold">}</span>
+	<span style="color:#f27900">// Otherwise returnSpeed is 0</span>
+	<span style="color:#bb7977; font-weight:bold">else</span>
+		returnSpeed <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+	<span style="color:#f27900">// If Direction is equal to 1, We are going Forward</span>
+	<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>Direction <span style="color:#ff0080; font-weight:bold">==</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">){</span>
+	 	<span style="color:#f27900">// Set Direction Pin (RD4) HI</span>
+		RD4 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#ff0080; font-weight:bold">}</span>
+	<span style="color:#f27900">// If Direction is equal to 0, We are going Backward</span>
+	<span style="color:#bb7977; font-weight:bold">else if</span> <span style="color:#ff0080; font-weight:bold">(</span>Direction <span style="color:#ff0080; font-weight:bold">==</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">){</span> <span style="color:#f27900">// Going Backward</span>
+		<span style="color:#f27900">// Set Direction Pin (RD4) LO</span>
+		RD4 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#ff0080; font-weight:bold">}</span>
+	<span style="color:#f27900">// Convert speeds 0-100 to PWM 20-100</span>
+	<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>returnSpeed <span style="color:#ff0080; font-weight:bold">&gt;</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">)</span>
+		returnSpeed <span style="color:#ff0080; font-weight:bold">= (</span><span style="color:#8080c0; font-weight:bold">unsigned char</span><span style="color:#ff0080; font-weight:bold">)(</span><span style="color:#800080; font-weight:bold">20</span> <span style="color:#ff0080; font-weight:bold">+ ((</span><span style="color:#8080c0; font-weight:bold">unsigned int</span><span style="color:#ff0080; font-weight:bold">)</span>returnSpeed<span style="color:#ff0080; font-weight:bold">*</span><span style="color:#800080; font-weight:bold">4</span><span style="color:#ff0080; font-weight:bold">)/</span><span style="color:#800080; font-weight:bold">5</span><span style="color:#ff0080; font-weight:bold">);</span>
+	<span style="color:#bb7977; font-weight:bold">return</span> returnSpeed<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#8080c0; font-weight:bold">unsigned char</span> <span style="color:#004466">CalculateRightSpeed</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">unsigned char</span> Speed<span style="color:#ff0080; font-weight:bold">,</span> <span style="color:#8080c0; font-weight:bold">unsigned char</span> Direction<span style="color:#ff0080; font-weight:bold">,</span> <span style="color:#8080c0; font-weight:bold">unsigned char</span> Heading<span style="color:#ff0080; font-weight:bold">) {</span>
+
+	<span style="color:#8080c0; font-weight:bold">unsigned char</span> returnSpeed<span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#8080c0; font-weight:bold">signed char</span> tempSpeed<span style="color:#ff0080; font-weight:bold">;</span>
+
+	<span style="color:#f27900">// If Heading is less than 90 and Speed greater than 0</span>
+	<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>Heading <span style="color:#ff0080; font-weight:bold">&lt;=</span> <span style="color:#800080; font-weight:bold">90</span> <span style="color:#ff0080; font-weight:bold">&amp;&amp;</span> Speed <span style="color:#ff0080; font-weight:bold">&gt;</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">) {</span>
+		<span style="color:#f27900">// returnSpeed = Speed + Speed*(90 - Heading)/90</span>
+		returnSpeed <span style="color:#ff0080; font-weight:bold">= (</span><span style="color:#8080c0; font-weight:bold">signed char</span><span style="color:#ff0080; font-weight:bold">)(</span>Speed <span style="color:#ff0080; font-weight:bold">+ ((</span><span style="color:#8080c0; font-weight:bold">unsigned int</span><span style="color:#ff0080; font-weight:bold">)</span> Speed<span style="color:#ff0080; font-weight:bold">*(</span><span style="color:#800080; font-weight:bold">90</span> <span style="color:#ff0080; font-weight:bold">-</span> Heading<span style="color:#ff0080; font-weight:bold">))/</span><span style="color:#800080; font-weight:bold">90</span><span style="color:#ff0080; font-weight:bold">);</span>
+		<span style="color:#f27900">// If 90 - Heading is greater than the TURN_THRESHOLD</span>
+		<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">((</span><span style="color:#800080; font-weight:bold">90</span> <span style="color:#ff0080; font-weight:bold">-</span> Heading<span style="color:#ff0080; font-weight:bold">) &gt;</span> TURN_THRESHOLD<span style="color:#ff0080; font-weight:bold">)</span>
+			<span style="color:#f27900">// Subtract TURN_OFFSET from returnSpeed</span>
+			returnSpeed <span style="color:#ff0080; font-weight:bold">-=</span> TURN_OFFSET<span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#ff0080; font-weight:bold">}</span>
+
+	<span style="color:#f27900">// else if Heading is greater than 90 and Speed is greater than 0</span>
+	<span style="color:#bb7977; font-weight:bold">else if</span> <span style="color:#ff0080; font-weight:bold">(</span>Heading <span style="color:#ff0080; font-weight:bold">&gt;</span> <span style="color:#800080; font-weight:bold">90</span>  <span style="color:#ff0080; font-weight:bold">&amp;&amp;</span> Speed <span style="color:#ff0080; font-weight:bold">&gt;</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">) {</span>
+		<span style="color:#f27900">// tempSpeed = Speed - Speed*(Heading - 90)/90</span>
+		tempSpeed <span style="color:#ff0080; font-weight:bold">= (</span>Speed <span style="color:#ff0080; font-weight:bold">- ((</span><span style="color:#8080c0; font-weight:bold">unsigned int</span><span style="color:#ff0080; font-weight:bold">)</span> Speed<span style="color:#ff0080; font-weight:bold">*(</span>Heading <span style="color:#ff0080; font-weight:bold">-</span> <span style="color:#800080; font-weight:bold">90</span><span style="color:#ff0080; font-weight:bold">))/</span><span style="color:#800080; font-weight:bold">90</span> <span style="color:#ff0080; font-weight:bold">);</span>
+		<span style="color:#f27900">// If Heading - 90 is greater than TURN_THRESHOLD</span>
+		<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">((</span>Heading <span style="color:#ff0080; font-weight:bold">-</span> <span style="color:#800080; font-weight:bold">90</span><span style="color:#ff0080; font-weight:bold">) &gt;</span> TURN_THRESHOLD<span style="color:#ff0080; font-weight:bold">)</span>
+			<span style="color:#f27900">// Subtract TURN_OFFSET from tempSpeed</span>
+			tempSpeed <span style="color:#ff0080; font-weight:bold">-=</span> TURN_OFFSET<span style="color:#ff0080; font-weight:bold">;</span>
+		<span style="color:#f27900">// If tempSpeed is negative</span>
+		<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>tempSpeed <span style="color:#ff0080; font-weight:bold">&lt;</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">)</span>
+			<span style="color:#f27900">// returnSpeed is 0</span>
+			returnSpeed <span style="color:#ff0080; font-weight:bold">= (</span><span style="color:#8080c0; font-weight:bold">unsigned char</span><span style="color:#ff0080; font-weight:bold">)</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+		<span style="color:#f27900">// Otherwise returnSpeed is tempSpeed</span>
+		<span style="color:#bb7977; font-weight:bold">else</span>
+			returnSpeed <span style="color:#ff0080; font-weight:bold">=</span> tempSpeed<span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#ff0080; font-weight:bold">}</span>
+
+	<span style="color:#f27900">// Otherwise returnSpeed is 0</span>
+	<span style="color:#bb7977; font-weight:bold">else</span>
+		returnSpeed <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+	<span style="color:#f27900">// If Direction is equal to 1, We are going Forward</span>
+	<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>Direction <span style="color:#ff0080; font-weight:bold">==</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">){</span> <span style="color:#f27900">// Going Forward</span>
+		<span style="color:#f27900">// Set Direction Pin (RD5) LO</span>
+		RD5 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#ff0080; font-weight:bold">}</span>
+	<span style="color:#f27900">// If Direction is equal to 0, We are going Backward</span>
+	<span style="color:#bb7977; font-weight:bold">else if</span> <span style="color:#ff0080; font-weight:bold">(</span>Direction <span style="color:#ff0080; font-weight:bold">==</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">){</span> <span style="color:#f27900">// Going Backward</span>
+		<span style="color:#f27900">// Set Direction Pin (RD4) HI</span>
+		RD5 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#ff0080; font-weight:bold">}</span>
+
+	<span style="color:#f27900">// Convert speeds 0-100 to PWM 20-100</span>
+	<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>returnSpeed <span style="color:#ff0080; font-weight:bold">&gt;</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">)</span>
+		returnSpeed <span style="color:#ff0080; font-weight:bold">= (</span><span style="color:#8080c0; font-weight:bold">unsigned char</span><span style="color:#ff0080; font-weight:bold">)(</span><span style="color:#800080; font-weight:bold">20</span> <span style="color:#ff0080; font-weight:bold">+ ((</span><span style="color:#8080c0; font-weight:bold">unsigned int</span><span style="color:#ff0080; font-weight:bold">)</span>returnSpeed<span style="color:#ff0080; font-weight:bold">*</span><span style="color:#800080; font-weight:bold">4</span><span style="color:#ff0080; font-weight:bold">)/</span><span style="color:#800080; font-weight:bold">5</span><span style="color:#ff0080; font-weight:bold">);</span>
+	<span style="color:#bb7977; font-weight:bold">return</span> returnSpeed<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#f27900">// Handle all the possible received messages using our Game SM</span>
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">HandleReceivedMessage</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">) {</span>
+
+
+	<span style="color:#8080c0; font-weight:bold">static unsigned char</span> LeftSpeed<span style="color:#ff0080; font-weight:bold">,</span> RightSpeed<span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#8080c0; font-weight:bold">static unsigned char</span> BroadcastCounter <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#8080c0; font-weight:bold">static unsigned char</span> Teammate_MSB<span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#8080c0; font-weight:bold">static unsigned char</span> Teammate_LSB<span style="color:#ff0080; font-weight:bold">;</span>
+
+  <span style="color:#f27900">// Call GetReply to see if a new message was received</span>
+	<span style="color:#004466">GetReply</span><span style="color:#ff0080; font-weight:bold">();</span>
+
+  <span style="color:#f27900">// If TeamColor Flag is set to No_COLOR, we have been swiped by a white card</span>
+	<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>TeamColor <span style="color:#ff0080; font-weight:bold">==</span> NO_COLOR<span style="color:#ff0080; font-weight:bold">)</span>
+    <span style="color:#f27900">// Set GameState to GAME_IDLE</span>
+		GameState <span style="color:#ff0080; font-weight:bold">=</span> GAME_IDLE<span style="color:#ff0080; font-weight:bold">;</span>
+
+  <span style="color:#f27900">// Switching on CurrentMessage</span>
+	<span style="color:#bb7977; font-weight:bold">switch</span><span style="color:#ff0080; font-weight:bold">(</span>CurrentMessage<span style="color:#ff0080; font-weight:bold">) {</span>
+        <span style="color:#f27900">// If it is a drive command</span>
+				<span style="color:#bb7977; font-weight:bold">case</span> DriveCommand<span style="color:#ff0080; font-weight:bold">:</span>
+          <span style="color:#f27900">// Toggle Port B0 for debugging</span>
+					RB0 ^<span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+          <span style="color:#f27900">// Set the Speed and RefDirection from the received message</span>
+					Speed <span style="color:#ff0080; font-weight:bold">=</span> ReceivedData<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">6</span><span style="color:#ff0080; font-weight:bold">];</span>
+					RefDirection <span style="color:#ff0080; font-weight:bold">=</span> ReceivedData<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">7</span><span style="color:#ff0080; font-weight:bold">];</span>
+					<span style="color:#f27900">// Save our reference speed for controller</span>
+					RefSpeed <span style="color:#ff0080; font-weight:bold">= (</span>RefDirection <span style="color:#ff0080; font-weight:bold">==</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">)</span>?<span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">signed int</span><span style="color:#ff0080; font-weight:bold">)</span>Speed<span style="color:#ff0080; font-weight:bold">:(</span><span style="color:#8080c0; font-weight:bold">signed int</span><span style="color:#ff0080; font-weight:bold">)-</span>Speed<span style="color:#ff0080; font-weight:bold">;</span>
+					RefHeading <span style="color:#ff0080; font-weight:bold">=</span> ReceivedData<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">8</span><span style="color:#ff0080; font-weight:bold">];</span>
+					<span style="color:#0080c0; font-weight:bold">#ifndef CONTROL_ON</span>
+					<span style="color:#f27900">// Call CalculateLeftSpeed with Speed/RefDirection/RefHeading to get Left Speed</span>
+					LeftSpeed <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#004466">CalculateLeftSpeed</span><span style="color:#ff0080; font-weight:bold">(</span>Speed<span style="color:#ff0080; font-weight:bold">,</span> RefDirection<span style="color:#ff0080; font-weight:bold">,</span> RefHeading<span style="color:#ff0080; font-weight:bold">);</span>
+					<span style="color:#f27900">// Call CalculateRightSpeed with Speed/RefDirection/RefHeading to get Right Speed</span>
+					RightSpeed <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#004466">CalculateRightSpeed</span><span style="color:#ff0080; font-weight:bold">(</span>Speed<span style="color:#ff0080; font-weight:bold">,</span> RefDirection<span style="color:#ff0080; font-weight:bold">,</span> RefHeading<span style="color:#ff0080; font-weight:bold">);</span>
+					<span style="color:#f27900">// Call SetDuty with LeftSpeed and RightSpeed</span>
+					<span style="color:#004466">SetDuty</span><span style="color:#ff0080; font-weight:bold">(</span>LeftSpeed<span style="color:#ff0080; font-weight:bold">,</span> RightSpeed<span style="color:#ff0080; font-weight:bold">);</span>
+					<span style="color:#0080c0; font-weight:bold">#endif</span>
+          <span style="color:#f27900">// Reset the CurrentMessage to NoMesssage</span>
+					CurrentMessage <span style="color:#ff0080; font-weight:bold">=</span> NoMessage<span style="color:#ff0080; font-weight:bold">;</span>
+				<span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#ff0080; font-weight:bold">}</span>
+
+  <span style="color:#f27900">// Switching on GameState</span>
+	<span style="color:#bb7977; font-weight:bold">switch</span><span style="color:#ff0080; font-weight:bold">(</span>GameState<span style="color:#ff0080; font-weight:bold">) {</span>
+		<span style="color:#f27900">// If it is GAME_IDLE</span>
+		<span style="color:#bb7977; font-weight:bold">case</span> GAME_IDLE<span style="color:#ff0080; font-weight:bold">:</span>
+
+			<span style="color:#f27900">// If SPI Message was a Color Swipe</span>
+			<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>ColorSwipeFlag <span style="color:#ff0080; font-weight:bold">==</span> <span style="color:#800080; font-weight:bold">1</span> <span style="color:#ff0080; font-weight:bold">&amp;&amp;</span> TeamColor <span style="color:#ff0080; font-weight:bold">!=</span> NO_COLOR<span style="color:#ff0080; font-weight:bold">){</span>
+        <span style="color:#f27900">// Set ColorSwipeFlag to 0</span>
+				ColorSwipeFlag <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+				<span style="color:#f27900">// Start Teammmate Timer</span>
+				<span style="color:#004466">TimerPIC_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span>TEAMMATE_TIMER<span style="color:#ff0080; font-weight:bold">,</span> TEAMMATE_TIMEOUT<span style="color:#ff0080; font-weight:bold">);</span>
+				<span style="color:#f27900">// Set The next GameState to LISTEN_FOR_TEAMMATE</span>
+				GameState <span style="color:#ff0080; font-weight:bold">=</span> LISTEN_FOR_TEAMMATE<span style="color:#ff0080; font-weight:bold">;</span>
+			<span style="color:#ff0080; font-weight:bold">}</span>
+      <span style="color:#f27900">// If a White Card Was Swiped</span>
+			<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>ColorSwipeFlag <span style="color:#ff0080; font-weight:bold">==</span> <span style="color:#800080; font-weight:bold">1</span> <span style="color:#ff0080; font-weight:bold">&amp;&amp;</span> TeamColor <span style="color:#ff0080; font-weight:bold">==</span> NO_COLOR<span style="color:#ff0080; font-weight:bold">) {</span>
+        <span style="color:#f27900">// Set ColorSwipeFlag to 0</span>
+				ColorSwipeFlag <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+        <span style="color:#f27900">// Send the Team Color</span>
+				DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">] =</span> TeamColor<span style="color:#ff0080; font-weight:bold">;</span>	<span style="color:#f27900">// This will be ignored by CVC</span>
+        <span style="color:#f27900">// Send the Atoll# 0 to indicate a clear atoll command</span>
+				DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">] =</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>	<span style="color:#f27900">// Clear all atolls</span>
+        <span style="color:#f27900">// Create the Packet as a B2C (Boat to Controller) Command</span>
+				<span style="color:#004466">CreatePacket</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">,</span> CVC_ADDRESS_MSB<span style="color:#ff0080; font-weight:bold">,</span> CVC_ADDRESS_LSB<span style="color:#ff0080; font-weight:bold">,</span>ACK_ON<span style="color:#ff0080; font-weight:bold">,</span> COMMAND_B2C<span style="color:#ff0080; font-weight:bold">,</span> DataToSend<span style="color:#ff0080; font-weight:bold">);</span>
+        <span style="color:#f27900">// Reset the current message to no message</span>
+				CurrentMessage <span style="color:#ff0080; font-weight:bold">=</span> NoMessage<span style="color:#ff0080; font-weight:bold">;</span>
+			<span style="color:#ff0080; font-weight:bold">}</span>
+
+		<span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+     <span style="color:#f27900">// If game state is LISTEN_FOR_TEAMMATE</span>
+		<span style="color:#bb7977; font-weight:bold">case</span> LISTEN_FOR_TEAMMATE<span style="color:#ff0080; font-weight:bold">:</span>
+			<span style="color:#f27900">// If current Message was a Color BroadCast from Team Mate</span>
+			<span style="color:#bb7977; font-weight:bold">switch</span><span style="color:#ff0080; font-weight:bold">(</span>CurrentMessage<span style="color:#ff0080; font-weight:bold">) {</span>
+				<span style="color:#bb7977; font-weight:bold">case</span> ColorBroadcast<span style="color:#ff0080; font-weight:bold">:</span>
+					<span style="color:#f27900">// if Teammate was your color</span>
+					<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>ReceivedData<span style="color:#ff0080; font-weight:bold">[</span>TEAM_COLOR<span style="color:#ff0080; font-weight:bold">] ==</span> TeamColor<span style="color:#ff0080; font-weight:bold">){</span>
+						<span style="color:#f27900">// Found a Teammate, Send A Directed Reply Team ACK until ACK Received Back</span>
+						<span style="color:#f27900">// Extract Address MSB</span>
+						Teammate_MSB <span style="color:#ff0080; font-weight:bold">=</span> ReceivedData<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">];</span>
+						Teammate_LSB <span style="color:#ff0080; font-weight:bold">=</span> ReceivedData<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">];</span>
+						BroadcastCounter <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+						DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">] =</span> TeamColor<span style="color:#ff0080; font-weight:bold">;</span>
+						<span style="color:#004466">CreatePacket</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">,</span> Teammate_MSB<span style="color:#ff0080; font-weight:bold">,</span> Teammate_LSB<span style="color:#ff0080; font-weight:bold">,</span> ACK_ON<span style="color:#ff0080; font-weight:bold">,</span> FIND_TEAM<span style="color:#ff0080; font-weight:bold">,</span> DataToSend<span style="color:#ff0080; font-weight:bold">);</span>
+            <span style="color:#f27900">// Set Next GameState to WAITING_FOR_ACK</span>
+						GameState <span style="color:#ff0080; font-weight:bold">=</span> WAITING_FOR_ACK<span style="color:#ff0080; font-weight:bold">;</span>
+					<span style="color:#ff0080; font-weight:bold">}</span>
+          <span style="color:#f27900">// Reset current message to NoMessage</span>
+					CurrentMessage <span style="color:#ff0080; font-weight:bold">=</span> NoMessage<span style="color:#ff0080; font-weight:bold">;</span>
+				<span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+        <span style="color:#f27900">// If CurrentMessage is NoMessage</span>
+				<span style="color:#bb7977; font-weight:bold">case</span> NoMessage<span style="color:#ff0080; font-weight:bold">:</span>
+				<span style="color:#f27900">// If Teammate Timer Times out, No Teammate Found</span>
+					<span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#004466">TimerPIC_IsTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span>TEAMMATE_TIMER<span style="color:#ff0080; font-weight:bold">) ==</span> TimerPIC_EXPIRED<span style="color:#ff0080; font-weight:bold">){</span>
+				<span style="color:#f27900">// Start Broadcasting Request For Teammate</span>
+						DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">] =</span> TeamColor<span style="color:#ff0080; font-weight:bold">;</span>
+						<span style="color:#004466">CreatePacket</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">,</span> BROADCAST_MSB<span style="color:#ff0080; font-weight:bold">,</span> BROADCAST_LSB<span style="color:#ff0080; font-weight:bold">,</span> ACK_ON<span style="color:#ff0080; font-weight:bold">,</span> FIND_TEAM<span style="color:#ff0080; font-weight:bold">,</span> DataToSend<span style="color:#ff0080; font-weight:bold">);</span>
+            <span style="color:#f27900">// Initalize BroadcastCounter to 0</span>
+						BroadcastCounter <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+            <span style="color:#f27900">// Set GameState to BROADCAST_TEAM_MESSAGE</span>
+						GameState <span style="color:#ff0080; font-weight:bold">=</span> BROADCAST_TEAM_MESSAGE<span style="color:#ff0080; font-weight:bold">;</span>
+					<span style="color:#ff0080; font-weight:bold">}</span>
+
+        <span style="color:#f27900">// If any other message was received</span>
+				<span style="color:#bb7977; font-weight:bold">default</span><span style="color:#ff0080; font-weight:bold">:</span>
+          <span style="color:#f27900">// Ignore, and reset current message to NoMessage</span>
+					CurrentMessage <span style="color:#ff0080; font-weight:bold">=</span> NoMessage<span style="color:#ff0080; font-weight:bold">;</span>
+				<span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+			<span style="color:#ff0080; font-weight:bold">}</span>
+		<span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+		<span style="color:#f27900">//  If GameState is WAITING_FOR_ACK</span>
+		<span style="color:#bb7977; font-weight:bold">case</span> WAITING_FOR_ACK<span style="color:#ff0080; font-weight:bold">:</span>
+			<span style="color:#bb7977; font-weight:bold">switch</span><span style="color:#ff0080; font-weight:bold">(</span>CurrentMessage<span style="color:#ff0080; font-weight:bold">) {</span>
+			    <span style="color:#f27900">// If message received was ModemACK</span>
+				<span style="color:#bb7977; font-weight:bold">case</span> ModemACK<span style="color:#ff0080; font-weight:bold">:</span>
+				    <span style="color:#f27900">// Reset BroadcastCounter to 0</span>
+					BroadcastCounter <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+					<span style="color:#f27900">// If TeamColor is Red</span>
+					<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>TeamColor <span style="color:#ff0080; font-weight:bold">==</span> RED<span style="color:#ff0080; font-weight:bold">)</span>
+					    <span style="color:#f27900">// Call SetServo to Raise the Red Flag</span>
+						<span style="color:#004466">SetServo</span><span style="color:#ff0080; font-weight:bold">(</span>RED_FLAG<span style="color:#ff0080; font-weight:bold">);</span>
+				    <span style="color:#f27900">// else if TeamColor is Green</span>
+					<span style="color:#bb7977; font-weight:bold">else if</span> <span style="color:#ff0080; font-weight:bold">(</span>TeamColor <span style="color:#ff0080; font-weight:bold">==</span> GREEN<span style="color:#ff0080; font-weight:bold">)</span>
+					    <span style="color:#f27900">// Call SetServo to Raise the Green Flag</span>
+						<span style="color:#004466">SetServo</span><span style="color:#ff0080; font-weight:bold">(</span>GREEN_FLAG<span style="color:#ff0080; font-weight:bold">);</span>
+				        <span style="color:#f27900">// Set GameState to GAME_ON</span>
+				    	GameState <span style="color:#ff0080; font-weight:bold">=</span> GAME_ON<span style="color:#ff0080; font-weight:bold">;</span>
+					<span style="color:#f27900">// Reset CurrentMessage to No Message</span>
+					CurrentMessage <span style="color:#ff0080; font-weight:bold">=</span> NoMessage<span style="color:#ff0080; font-weight:bold">;</span>
+				<span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+				<span style="color:#f27900">// If NoMessage Received</span>
+				<span style="color:#bb7977; font-weight:bold">case</span> NoMessage<span style="color:#ff0080; font-weight:bold">:</span>
+						<span style="color:#f27900">// Start Broadcasting Request For Teammate</span>
+						<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>BroadcastCounter <span style="color:#ff0080; font-weight:bold">&lt;</span> <span style="color:#800080; font-weight:bold">10</span><span style="color:#ff0080; font-weight:bold">){</span>
+							<span style="color:#f27900">// If Message Was Broadcasted</span>
+							<span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#004466">CheckTransmit</span><span style="color:#ff0080; font-weight:bold">() ==</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">){</span>
+								<span style="color:#f27900">// Send Another Message</span>
+								DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">] =</span> TeamColor<span style="color:#ff0080; font-weight:bold">;</span>
+								<span style="color:#004466">CreatePacket</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">,</span> Teammate_MSB<span style="color:#ff0080; font-weight:bold">,</span> Teammate_LSB<span style="color:#ff0080; font-weight:bold">,</span> ACK_ON<span style="color:#ff0080; font-weight:bold">,</span> FIND_TEAM<span style="color:#ff0080; font-weight:bold">,</span> DataToSend<span style="color:#ff0080; font-weight:bold">);</span>
+								BroadcastCounter<span style="color:#ff0080; font-weight:bold">++;</span>
+								<span style="color:#ff0080; font-weight:bold">}</span>
+						<span style="color:#ff0080; font-weight:bold">}</span> <span style="color:#bb7977; font-weight:bold">else</span> <span style="color:#ff0080; font-weight:bold">{</span>
+							<span style="color:#f27900">// We've Exceeded max 10 Messages</span>
+							<span style="color:#f27900">// Return to GAME_IDLE State</span>
+							GameState <span style="color:#ff0080; font-weight:bold">=</span> GAME_IDLE<span style="color:#ff0080; font-weight:bold">;</span>
+							BroadcastCounter <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+						<span style="color:#ff0080; font-weight:bold">}</span>
+				<span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+                <span style="color:#f27900">// If any other message was received</span>
+				<span style="color:#bb7977; font-weight:bold">default</span><span style="color:#ff0080; font-weight:bold">:</span>
+				    <span style="color:#f27900">// Ignore, and reset current message to NoMessage</span>
+					CurrentMessage <span style="color:#ff0080; font-weight:bold">=</span> NoMessage<span style="color:#ff0080; font-weight:bold">;</span>
+				<span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+			<span style="color:#ff0080; font-weight:bold">}</span>
+		<span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+		<span style="color:#f27900">// If GameState is BROADCAST_TEAM_MESSAGE</span>
+		<span style="color:#bb7977; font-weight:bold">case</span> BROADCAST_TEAM_MESSAGE<span style="color:#ff0080; font-weight:bold">:</span>
+
+				<span style="color:#bb7977; font-weight:bold">switch</span><span style="color:#ff0080; font-weight:bold">(</span>CurrentMessage<span style="color:#ff0080; font-weight:bold">) {</span>
+				    <span style="color:#f27900">// If CurrentMessage is TeammateACK</span>
+					<span style="color:#bb7977; font-weight:bold">case</span> TeammateACK<span style="color:#ff0080; font-weight:bold">:</span>
+					    <span style="color:#f27900">// If ACK received, Teammate Found with same color</span>
+						<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>ReceivedData<span style="color:#ff0080; font-weight:bold">[</span>TEAM_COLOR<span style="color:#ff0080; font-weight:bold">] ==</span> TeamColor<span style="color:#ff0080; font-weight:bold">){</span>
+							<span style="color:#f27900">// Set GameState to GAME_ON</span>
+							GameState <span style="color:#ff0080; font-weight:bold">=</span> GAME_ON<span style="color:#ff0080; font-weight:bold">;</span>
+							<span style="color:#f27900">// Reset BroadcastCounter to 0</span>
+							BroadcastCounter <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+							<span style="color:#f27900">// If TeamColor is Red</span>
+							<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>TeamColor <span style="color:#ff0080; font-weight:bold">==</span> RED<span style="color:#ff0080; font-weight:bold">)</span>
+							    <span style="color:#f27900">// Call SetServo to RED_FlAG</span>
+								<span style="color:#004466">SetServo</span><span style="color:#ff0080; font-weight:bold">(</span>RED_FLAG<span style="color:#ff0080; font-weight:bold">);</span>
+						    <span style="color:#f27900">// If TeamColor is Green</span>
+							<span style="color:#bb7977; font-weight:bold">else if</span> <span style="color:#ff0080; font-weight:bold">(</span>TeamColor <span style="color:#ff0080; font-weight:bold">==</span> GREEN<span style="color:#ff0080; font-weight:bold">)</span>
+							    <span style="color:#f27900">// Call SetServo to GREEN_FLAG</span>
+								<span style="color:#004466">SetServo</span><span style="color:#ff0080; font-weight:bold">(</span>GREEN_FLAG<span style="color:#ff0080; font-weight:bold">);</span>
+							<span style="color:#f27900">// Reset CurrentMessage to No Message</span>
+							CurrentMessage <span style="color:#ff0080; font-weight:bold">=</span> NoMessage<span style="color:#ff0080; font-weight:bold">;</span>
+						<span style="color:#ff0080; font-weight:bold">}</span>
+					<span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+					<span style="color:#f27900">// If NoMessage was Received</span>
+					<span style="color:#bb7977; font-weight:bold">case</span> NoMessage<span style="color:#ff0080; font-weight:bold">:</span>
+						<span style="color:#f27900">// If BroadcastCounter is less than 255</span>
+						<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>BroadcastCounter <span style="color:#ff0080; font-weight:bold">&lt;</span> <span style="color:#800080; font-weight:bold">255</span><span style="color:#ff0080; font-weight:bold">){</span>
+						    <span style="color:#f27900">// If Message Was Broadcasted</span>
+						<span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#004466">CheckTransmit</span><span style="color:#ff0080; font-weight:bold">() ==</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">){</span>
+							<span style="color:#f27900">// Send Another Message</span>
+							DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">] =</span> TeamColor<span style="color:#ff0080; font-weight:bold">;</span>
+							<span style="color:#004466">CreatePacket</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">,</span> BROADCAST_MSB<span style="color:#ff0080; font-weight:bold">,</span> BROADCAST_LSB<span style="color:#ff0080; font-weight:bold">,</span> ACK_ON<span style="color:#ff0080; font-weight:bold">,</span> FIND_TEAM<span style="color:#ff0080; font-weight:bold">,</span> DataToSend<span style="color:#ff0080; font-weight:bold">);</span>
+							<span style="color:#f27900">// Increment the BroadcastCounter</span>
+							BroadcastCounter<span style="color:#ff0080; font-weight:bold">++;</span>
+							<span style="color:#ff0080; font-weight:bold">}</span>
+						<span style="color:#ff0080; font-weight:bold">}</span> <span style="color:#bb7977; font-weight:bold">else</span> <span style="color:#ff0080; font-weight:bold">{</span>
+						<span style="color:#f27900">// We've Timed Out, Return to GAME_IDLE State</span>
+						GameState <span style="color:#ff0080; font-weight:bold">=</span> GAME_IDLE<span style="color:#ff0080; font-weight:bold">;</span>
+						<span style="color:#f27900">// Call SetServo to place Flag in TIMEOUT_FLAG position</span>
+						<span style="color:#004466">SetServo</span><span style="color:#ff0080; font-weight:bold">(</span>TIMEOUT_FLAG<span style="color:#ff0080; font-weight:bold">);</span>
+						<span style="color:#f27900">// Reset BroadcastCounter to 0</span>
+						BroadcastCounter <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+						<span style="color:#ff0080; font-weight:bold">}</span>
+					<span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+					<span style="color:#f27900">// If any other message was received</span>
+					<span style="color:#bb7977; font-weight:bold">default</span><span style="color:#ff0080; font-weight:bold">:</span>
+						<span style="color:#f27900">// Ignore, and reset current message to NoMessage</span>
+						CurrentMessage <span style="color:#ff0080; font-weight:bold">=</span> NoMessage<span style="color:#ff0080; font-weight:bold">;</span>
+					<span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+				<span style="color:#ff0080; font-weight:bold">}</span>
+
+		<span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+		<span style="color:#f27900">// If GameState is GAME_ON</span>
+		<span style="color:#bb7977; font-weight:bold">case</span> GAME_ON<span style="color:#ff0080; font-weight:bold">:</span>
+			<span style="color:#f27900">// If TeamColor is NO_COLOR, a White Card was Swiped</span>
+			<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>TeamColor <span style="color:#ff0080; font-weight:bold">==</span> NO_COLOR<span style="color:#ff0080; font-weight:bold">){</span>
+				<span style="color:#f27900">// Set GameState to GAME_IDLE</span>
+				GameState <span style="color:#ff0080; font-weight:bold">=</span> GAME_IDLE<span style="color:#ff0080; font-weight:bold">;</span>
+			<span style="color:#f27900">// Otherwise</span>
+			<span style="color:#ff0080; font-weight:bold">}</span> <span style="color:#bb7977; font-weight:bold">else</span> <span style="color:#ff0080; font-weight:bold">{</span>
+						<span style="color:#bb7977; font-weight:bold">switch</span><span style="color:#ff0080; font-weight:bold">(</span>CurrentMessage<span style="color:#ff0080; font-weight:bold">) {</span>
+							<span style="color:#f27900">// If Current Message was AtollSuccess</span>
+							<span style="color:#bb7977; font-weight:bold">case</span> AtollSuccess<span style="color:#ff0080; font-weight:bold">:</span>
+								<span style="color:#f27900">// Send Atoll Captured Broadcast</span>
+								DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">] =</span> TeamColor<span style="color:#ff0080; font-weight:bold">;</span>
+								DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">] =</span> ReceivedData<span style="color:#ff0080; font-weight:bold">[</span>ATOLL_NUM_REPLY<span style="color:#ff0080; font-weight:bold">];</span>	<span style="color:#f27900">// Atoll number</span>
+								<span style="color:#004466">CreatePacket</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">,</span> BROADCAST_MSB<span style="color:#ff0080; font-weight:bold">,</span> BROADCAST_LSB<span style="color:#ff0080; font-weight:bold">,</span>BROADCAST_MESSAGE<span style="color:#ff0080; font-weight:bold">,</span> BROADCAST_CAPTURE<span style="color:#ff0080; font-weight:bold">,</span> DataToSend<span style="color:#ff0080; font-weight:bold">);</span>
+								<span style="color:#f27900">// Set Current Message to NoMessage</span>
+								CurrentMessage <span style="color:#ff0080; font-weight:bold">=</span> NoMessage<span style="color:#ff0080; font-weight:bold">;</span>
+							<span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+							<span style="color:#f27900">// If Current Message was AtollFailure</span>
+							<span style="color:#bb7977; font-weight:bold">case</span> AtollFailure<span style="color:#ff0080; font-weight:bold">:</span>
+								<span style="color:#f27900">// Resend Atoll Capture Request</span>
+								DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">] =</span> ReceivedData<span style="color:#ff0080; font-weight:bold">[</span>COLOR_REPLY<span style="color:#ff0080; font-weight:bold">];</span>	<span style="color:#f27900">// New Owner</span>
+								DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">] =</span> ReceivedData<span style="color:#ff0080; font-weight:bold">[</span>ATOLL_NUM_REPLY<span style="color:#ff0080; font-weight:bold">];</span>	<span style="color:#f27900">// Atoll number</span>
+								<span style="color:#f27900">// If we fail, just send out who owns it</span>
+								<span style="color:#004466">CreatePacket</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">,</span> BROADCAST_MSB<span style="color:#ff0080; font-weight:bold">,</span> BROADCAST_LSB<span style="color:#ff0080; font-weight:bold">,</span>BROADCAST_MESSAGE<span style="color:#ff0080; font-weight:bold">,</span> BROADCAST_CAPTURE<span style="color:#ff0080; font-weight:bold">,</span> DataToSend<span style="color:#ff0080; font-weight:bold">);</span>
+								<span style="color:#f27900">// Set Current Message to NoMessage</span>
+								CurrentMessage <span style="color:#ff0080; font-weight:bold">=</span> NoMessage<span style="color:#ff0080; font-weight:bold">;</span>
+							<span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+							<span style="color:#f27900">// If Current Message was AtollCaptured</span>
+							<span style="color:#bb7977; font-weight:bold">case</span> AtollCaptured<span style="color:#ff0080; font-weight:bold">:</span>
+								<span style="color:#f27900">// Do Nothing</span>
+							<span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+							<span style="color:#f27900">// If Any other message was recieved</span>
+							<span style="color:#bb7977; font-weight:bold">default</span><span style="color:#ff0080; font-weight:bold">:</span>
+								<span style="color:#f27900">// And the message was not NoMessage</span>
+								<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>CurrentMessage <span style="color:#ff0080; font-weight:bold">!=</span> NoMessage<span style="color:#ff0080; font-weight:bold">)</span>
+									<span style="color:#f27900">// Set the CurrentMessage to NoMessage</span>
+									CurrentMessage <span style="color:#ff0080; font-weight:bold">=</span> NoMessage<span style="color:#ff0080; font-weight:bold">;</span>
+							<span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+						<span style="color:#ff0080; font-weight:bold">}</span>
+					<span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+				<span style="color:#ff0080; font-weight:bold">}</span>
+	<span style="color:#ff0080; font-weight:bold">}</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#0080c0; font-weight:bold">#ifdef MAIN_TEST</span>
+
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">main</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">) {</span>
+
+	<span style="color:#f27900">// Turn off analog inputs (PCFG = 1111)</span>
+	PCFG0 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+	PCFG1 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+	PCFG2 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+	PCFG3 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+
+
+	<span style="color:#f27900">// Set Debug LED ports as outputs (B0,D0,D2,D3,D4,D5)</span>
+	TRISB0 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+	TRISD0 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+	TRISD2 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span> <span style="color:#f27900">// Red LED</span>
+	TRISD3 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span> <span style="color:#f27900">// Green LED</span>
+	TRISD4 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+	TRISD5 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+	<span style="color:#f27900">// Initialize Ports (RB0 = ON/ RD0 = RD2 = RD3 = RD4 = RD5 = OFF)</span>
+	RB0 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+	RD0 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+	RD2 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+	RD3 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+	RD4 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+	RD5 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+	<span style="color:#f27900">// Initialize Servo Subsytem</span>
+	<span style="color:#004466">InitServo</span><span style="color:#ff0080; font-weight:bold">();</span>
+	<span style="color:#f27900">// Initialize PWM Subsystem</span>
+	<span style="color:#004466">InitPWM</span><span style="color:#ff0080; font-weight:bold">();</span>
+	<span style="color:#f27900">// Initialize SPI Subsystem (Make sure to InitSPI After InitPWM)</span>
+	<span style="color:#004466">InitSPI</span><span style="color:#ff0080; font-weight:bold">();</span>
+	<span style="color:#f27900">// Initialize UART Subsystem</span>
+	<span style="color:#004466">InitComm</span><span style="color:#ff0080; font-weight:bold">();</span>
+	<span style="color:#f27900">// Initialize A2D Subsystem</span>
+	<span style="color:#004466">InitADC</span><span style="color:#ff0080; font-weight:bold">();</span>
+	<span style="color:#f27900">// Initialize TimerPIC Subsystem</span>
+	<span style="color:#004466">TimerPIC_Init</span><span style="color:#ff0080; font-weight:bold">();</span>
+	<span style="color:#004466">TimerPIC_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span>SEND_TIMER<span style="color:#ff0080; font-weight:bold">,</span> SENDTIMEOUT<span style="color:#ff0080; font-weight:bold">);</span>
+	<span style="color:#004466">TimerPIC_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span>CONTROL_TIMER<span style="color:#ff0080; font-weight:bold">,</span> CONTROL_PERIOD<span style="color:#ff0080; font-weight:bold">);</span>
+
+    <span style="color:#f27900">// Initialize Counter to 0</span>
+	counter <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+	<span style="color:#f27900">// Enable Interrupts</span>
+	PEIE <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+	GIE <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+    <span style="color:#f27900">// Loop Forever</span>
+	<span style="color:#bb7977; font-weight:bold">while</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">) {</span>
+		<span style="color:#0080c0; font-weight:bold">#ifdef CONTROL_ON</span>
+		<span style="color:#004466">UpdateSpeed</span><span style="color:#ff0080; font-weight:bold">();</span>
+		<span style="color:#0080c0; font-weight:bold">#endif</span>
+		<span style="color:#f27900">// Run Transmit State Machine</span>
+		<span style="color:#004466">TransmitSM</span><span style="color:#ff0080; font-weight:bold">();</span>
+		<span style="color:#f27900">// Run Received Message State Machine</span>
+		<span style="color:#004466">ReceiveMessageSM</span><span style="color:#ff0080; font-weight:bold">();</span>
+		<span style="color:#f27900">// Run Handle Received Message State Machine</span>
+		<span style="color:#004466">HandleReceivedMessage</span><span style="color:#ff0080; font-weight:bold">();</span>
+	<span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#0080c0; font-weight:bold">#endif</span> <span style="color:#f27900">// MAIN_TEST</span>
+<span style="color:#0080c0; font-weight:bold"></span>
+</pre>
+</body>
+</html>
+<!--HTML generated by highlight 2.13, http://www.andre-simon.de/-->

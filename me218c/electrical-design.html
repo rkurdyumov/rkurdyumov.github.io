@@ -1,0 +1,100 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv='X-UA-Compatible' content='IE=EmulateIE7' />
+<title>Electrical Design - ME218C: Team Oregon Trail</title>
+
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+
+<link rel='stylesheet' href='http://cdn1.weebly.com/editor/images/common/common.css?9' type='text/css' />
+<link rel='stylesheet' type='text/css' href='files/main_style.css?1306803949' title='wsite-theme-css' />
+<style type='text/css'>
+#wsite-content div.paragraph, #wsite-content p, #wsite-content .product-description, .blog-sidebar div.paragraph, .blog-sidebar p{}
+#wsite-content h2, #wsite-content .product-title, .blog-sidebar h2{}
+#wsite-title{}
+</style>
+<style type='text/css'>
+.wsite-header {
+	background-image: url(uploads/7/6/4/8/7648233/header_images/1306797373.jpg) !important;
+	background-position: 0 0 !important;
+}
+</style>
+<script type='text/javascript'><!--
+var STATIC_BASE = 'http://cdn1.weebly.com/';
+var STYLE_PREFIX = 'wsite';
+//-->
+</script>
+<script type='text/javascript' src='http://cdn1.weebly.com/libraries/prototype/1.7-custom/prototype.min.js'></script>
+<script type='text/javascript' src='http://cdn1.weebly.com/libraries/scriptaculous/1.9.0-custom/effects.min.js'></script>
+<script type='text/javascript' src='http://cdn1.weebly.com/editor/images/common/utilities.js?2'></script>
+<script type='text/javascript' src='http://cdn1.weebly.com/editor/images/common/lightbox202.js?9'></script>
+<script type='text/javascript' src='http://cdn1.weebly.com/editor/libraries/flyout_menus.js?13'></script>
+<script type='text/javascript'><!--
+var IS_ARCHIVE=1;
+function initFlyouts(){initPublishedFlyoutMenus([{"id":"827577867979079627","title":"Home","url":"index.html"},{"id":"204663019954184299","title":"Meet the Team","url":"meet-the-team.html"},{"id":"395667095664308912","title":"Project Scope","url":"project-scope.html"},{"id":"417712849233469031","title":"Design Overview","url":"design-overview.html"},{"id":"420071610921579493","title":"Mechanical Design","url":"mechanical-design.html"},{"id":"944511565360168593","title":"Electrical Design","url":"electrical-design.html"},{"id":"940510528500066676","title":"Software Design","url":"software-design.html"},{"id":"623533585875987356","title":"Bill of Materials","url":"bill-of-materials.html"},{"id":"388808413366027315","title":"Gems of Wisdom","url":"gems-of-wisdom.html"},{"id":"640860537589248877","title":"Media","url":"media.html"}],'944511565360168593',"<li class='wsite-nav-more'><a href=\"#\">more...<\/a><\/li>",'active',false)}
+if (Prototype.Browser.IE) window.onload=initFlyouts; else document.observe('dom:loaded', initFlyouts);
+//-->
+</script>
+</head>
+<body class='wsite-page-electrical-design'>
+<div id="container">
+
+<div id="banner">
+<div id="bannerLeft" class="wsite-header"></div>
+<div id="bannerRight">
+<h1><span id="wsite-title">ME218C: Team Oregon Trail</span></h1>
+</div>
+</div>
+
+<div id="content">
+
+<div id="leftColumn">
+<ul id="nav">
+<li id='pg827577867979079627'><a href="index.html">Home</a></li><li id='pg204663019954184299'><a href="meet-the-team.html">Meet the Team</a></li><li id='pg395667095664308912'><a href="project-scope.html">Project Scope</a></li><li id='pg417712849233469031'><a href="design-overview.html">Design Overview</a></li><li id='pg420071610921579493'><a href="mechanical-design.html">Mechanical Design</a></li><li id="active"><a href="electrical-design.html">Electrical Design</a></li><li id='pg940510528500066676'><a href="software-design.html">Software Design</a></li><li id='pg623533585875987356'><a href="bill-of-materials.html">Bill of Materials</a></li><li id='pg388808413366027315'><a href="gems-of-wisdom.html">Gems of Wisdom</a></li><li id='pg640860537589248877'><a href="media.html">Media</a></li>
+
+</ul>
+<div id="leftColumnBottom"></p>
+
+</div>
+</div>
+
+<div id="rightColumn">
+
+<div id='wsite-content'><h2  style=" text-align: left; ">Electrical Design: Bike (Capture Vehicle Controller)<br /></h2>
+<div  class="paragraph editable-text" style=" text-align: left; display: block; ">The schematic of our bike electronics is below.&nbsp; Click on the image for a full size PDF.</div>
+
+<div ><div style="text-align: center;"><a href='uploads/7/6/4/8/7648233/e128_schematic.pdf' target='_blank'><img src="uploads/7/6/4/8/7648233/969166.png?506" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div  class="paragraph editable-text" style=" text-align: left; ">The heart of our Capture Vehicle Controller uses the E128 Microcontroller in order to receive sensor inputs, send out messages to the boat via Xbee radio, and causes indicators on the Bicycle Control Panel to change depending on the status of the boat and game. A rotary hall effect sensor is used to &nbsp;measure the rotation of the handle bars in order to provide the boat with a heading. 3 Hall Effect Sensors are used to detect the speed and direction of the bicycle wheel. When a magnet passes &nbsp;in front of the hall effect sensor, the signal line is grounded. The 3 hall effect sensors had to be triggered in the right order for direction to be measured correctly. Lastly, a button was cleverly disguised inside a bicycle bell which when pulled would cause the boat to ramp up the motors to the maximum speed.&nbsp;</div>
+
+<h2  style=" text-align: left; ">Electrical Design: Boat (Atoll Capture Vehicle)<br /></h2>
+<div  class="paragraph editable-text" style=" text-align: left; display: block; ">The schematic of our boat electronics is below.&nbsp; Click on the image for a full size PDF.<br /></div>
+
+<div ><div style="text-align: center;"><a href='uploads/7/6/4/8/7648233/boat_schematic.pdf' target='_blank'><img src="uploads/7/6/4/8/7648233/2503165.png?509" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div  class="paragraph editable-text" style=" text-align: left; ">The boat schematic shows how the network of PIC&nbsp;microcontrollers&nbsp;are configured with reference to the actual ports.&nbsp;</div>
+
+<div ><div style="text-align: center;"><a href='uploads/7/6/4/8/7648233/motor.pdf' target='_blank'><img src="uploads/7/6/4/8/7648233/2039775.jpg?499" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div  class="paragraph editable-text" style=" text-align: left; ">LMD18200s were used to drive the left and right propeller motors. These would be driven via PWM and direction signals outputted by the PIC16F777.&nbsp;</div>
+
+<h2  style=" text-align: left; ">CVC Battery Life Calculations</h2>
+
+<div  class="paragraph editable-text" style=" text-align: left; ">Summing all of the current draws and making some assumptions about the % On Time yields the Estimated Battery Life for the CVC.&nbsp; If we turn off our boost servo (which was not used to meet project requirements), the CVC should last almost 6.5 hours on one 7.2V NiCad battery.<br /></div>
+
+<div ><div style="text-align: left;"><a><img src="uploads/7/6/4/8/7648233/7834679.png?522" style="margin-top: 10px; margin-bottom: 10px; margin-left: 0; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+</div>
+
+</div>
+
+<div id="clear">
+</div>
+
+</div>
+
+</div>
+<div id="copyright"> <span id='weeblyFooter'>Create a <a target="_top" href="http://www.weebly.com/">free web site</a> with <a target="_top" href="http://www.weebly.com/" title="free web site">Weebly</a></span></div>
+
+</body>
+</html>

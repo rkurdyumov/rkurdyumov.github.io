@@ -1,0 +1,192 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<title>drive_motor.c</title>
+<link rel="stylesheet" type="text/css" href="highlight.css">
+</head>
+<body class="hl">
+<pre class="hl"><span class="hl com">/**************************************************************************</span>
+<span class="hl com"></span>
+<span class="hl com">Drive Motor Module</span>
+<span class="hl com"></span>
+<span class="hl com">Left Drive Motor: U0 (PWM), T7 (Dir)</span>
+<span class="hl com">Right Drive Motor: U1 (PWM), E7 (Dir)</span>
+<span class="hl com"></span>
+<span class="hl com">**************************************************************************/</span>
+
+<span class="hl com">/*---------------------------- Include Files ----------------------------*/</span>
+<span class="hl dir">#include &lt;stdio.h&gt;</span>
+<span class="hl dir">#include &lt;timers12.h&gt;</span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;PWM.h&quot;</span><span class="hl dir"></span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;ADS12.h&quot;</span><span class="hl dir"></span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;game.h&quot;</span><span class="hl dir"></span>
+
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;drive_motor.h&quot;</span><span class="hl dir"></span>
+
+<span class="hl com">/*--------------------------- Module Defines ----------------------------*/</span>
+<span class="hl slc">// Define Motor Direction Pin</span>
+<span class="hl dir">#define	LEFT_WHEEL_FORWARD		PTT |= BIT7HI</span>
+<span class="hl dir">#define	LEFT_WHEEL_REVERSE		PTT &amp;= BIT7LO</span>
+<span class="hl dir">#define 	RIGHT_WHEEL_FORWARD		PORTE |= BIT7HI</span>
+<span class="hl dir">#define	RIGHT_WHEEL_REVERSE		PORTE &amp;= BIT7LO</span>
+
+<span class="hl dir">#define	TAPE_THRESHOLD		900</span>
+
+<span class="hl com">/*---------------------------- Module Types -----------------------------*/</span>
+<span class="hl com">/*-------------------------- Module Variables ---------------------------*/</span>
+<span class="hl com">/*-------------------------- Module Functions ---------------------------*/</span>
+<span class="hl kwb">void</span> <span class="hl kwd">MotorStop</span><span class="hl sym">(</span><span class="hl kwb">unsigned char</span> wheel<span class="hl sym">);</span>
+<span class="hl com">/*----------------------------- Module Code -----------------------------*/</span>
+
+<span class="hl slc">// InitializeDriveMotors: Takes Nothing, Returns nothing and initializes Motors subsystem</span>
+<span class="hl kwb">void</span> <span class="hl kwd">InitializeDriveMotors</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">) {</span>
+
+	<span class="hl kwd">PWMOnOff</span><span class="hl sym">(</span><span class="hl num">1</span><span class="hl sym">,</span><span class="hl num">1</span><span class="hl sym">,</span><span class="hl num">1</span><span class="hl sym">,</span><span class="hl num">1</span><span class="hl sym">,</span><span class="hl num">1</span><span class="hl sym">);</span> <span class="hl slc">// Turn PWM Channel 0, 1 on (U0 and U1)</span>
+  	<span class="hl kwd">PWMFrequency</span><span class="hl sym">(</span><span class="hl num">0</span><span class="hl sym">,</span><span class="hl num">800</span><span class="hl sym">);</span> <span class="hl slc">// group 0</span>
+	<span class="hl kwd">MotorStop</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">);</span>
+	<span class="hl kwd">MotorStop</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">);</span>
+	DDRE <span class="hl sym">|=</span> BIT7HI<span class="hl sym">;</span> <span class="hl slc">// Right Dir</span>
+	DDRT <span class="hl sym">|=</span> BIT7HI<span class="hl sym">;</span> <span class="hl slc">// Left Dir</span>
+	<span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">)</span><span class="hl kwd">ADS12_Init</span><span class="hl sym">(</span><span class="hl str">&quot;IIIIAAOO&quot;</span><span class="hl sym">);</span> <span class="hl slc">// Bump sensors + tape sensors</span>
+<span class="hl sym">}</span>
+
+<span class="hl slc">// MotorStop: Takes LEFT or RIGHT for the wheel and stops it</span>
+<span class="hl kwb">void</span> <span class="hl kwd">MotorStop</span><span class="hl sym">(</span><span class="hl kwb">unsigned char</span> wheel<span class="hl sym">){</span>
+
+	<span class="hl kwa">switch</span> <span class="hl sym">(</span>wheel<span class="hl sym">){</span>
+		<span class="hl kwa">case</span> LEFT<span class="hl sym">:</span> <span class="hl kwd">PWMDutyCycle</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> <span class="hl num">0</span><span class="hl sym">);</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span> RIGHT<span class="hl sym">:</span>	<span class="hl kwd">PWMDutyCycle</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> <span class="hl num">0</span><span class="hl sym">);</span> <span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">default</span><span class="hl sym">:</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+<span class="hl sym">}</span>
+
+<span class="hl slc">// MotorReverse: Takes LEFT or RIGHT for the wheel and drives it backward at the specified speed</span>
+<span class="hl kwb">void</span> <span class="hl kwd">MotorReverse</span><span class="hl sym">(</span><span class="hl kwb">unsigned char</span> wheel<span class="hl sym">,</span> <span class="hl kwb">unsigned char</span> speed<span class="hl sym">){</span>
+
+	<span class="hl kwa">switch</span> <span class="hl sym">(</span>wheel<span class="hl sym">){</span>
+		<span class="hl kwa">case</span> LEFT<span class="hl sym">:</span>
+			LEFT_WHEEL_REVERSE<span class="hl sym">;</span>
+			<span class="hl kwd">PWMDutyCycle</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> speed<span class="hl sym">);</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span> RIGHT<span class="hl sym">:</span>
+			RIGHT_WHEEL_REVERSE<span class="hl sym">;</span>
+			<span class="hl kwd">PWMDutyCycle</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> speed<span class="hl sym">);</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">default</span><span class="hl sym">:</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+<span class="hl sym">}</span>
+
+<span class="hl slc">// MotorForward: takes LEFT or RIGHT for the wheel and drives it forward at the specified speed</span>
+<span class="hl kwb">void</span> <span class="hl kwd">MotorForward</span><span class="hl sym">(</span><span class="hl kwb">unsigned char</span> wheel<span class="hl sym">,</span> <span class="hl kwb">unsigned char</span> speed<span class="hl sym">){</span>
+
+	<span class="hl kwa">switch</span> <span class="hl sym">(</span>wheel<span class="hl sym">){</span>
+		<span class="hl kwa">case</span> LEFT<span class="hl sym">:</span>
+			LEFT_WHEEL_FORWARD<span class="hl sym">;</span>
+			<span class="hl kwd">PWMDutyCycle</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> speed<span class="hl sym">);</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span> RIGHT<span class="hl sym">:</span>
+			RIGHT_WHEEL_FORWARD<span class="hl sym">;</span>
+			<span class="hl kwd">PWMDutyCycle</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> speed<span class="hl sym">);</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">default</span><span class="hl sym">:</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+<span class="hl sym">}</span>
+
+<span class="hl kwb">void</span> <span class="hl kwd">RotateCW</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">){</span>
+
+	<span class="hl kwd">MotorForward</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> <span class="hl num">34</span><span class="hl sym">);</span>
+	<span class="hl kwd">MotorReverse</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> <span class="hl num">34</span><span class="hl sym">);</span>
+<span class="hl sym">}</span>
+
+<span class="hl kwb">void</span> <span class="hl kwd">RotateCCW</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">){</span>
+
+	<span class="hl kwd">MotorReverse</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">,</span> <span class="hl num">34</span><span class="hl sym">);</span>
+	<span class="hl kwd">MotorForward</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">,</span> <span class="hl num">34</span><span class="hl sym">);</span>
+<span class="hl sym">}</span>
+
+<span class="hl kwb">void</span> <span class="hl kwd">StopDriveMotors</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">) {</span>
+
+	<span class="hl kwd">MotorStop</span><span class="hl sym">(</span>LEFT_DRIVE<span class="hl sym">);</span>
+	<span class="hl kwd">MotorStop</span><span class="hl sym">(</span>RIGHT_DRIVE<span class="hl sym">);</span>
+<span class="hl sym">}</span>
+
+<span class="hl slc">// CheckBumpSensor: takes NORTH, EAST, WEST, SOUTH bumpSensor and returns whether it is bumped</span>
+<span class="hl kwb">unsigned char</span> <span class="hl kwd">CheckBumpSensor</span><span class="hl sym">(</span><span class="hl kwb">unsigned char</span> bumpSensor<span class="hl sym">) {</span>
+
+	<span class="hl kwa">switch</span><span class="hl sym">(</span>bumpSensor<span class="hl sym">) {</span>
+		<span class="hl kwa">case</span> NORTH<span class="hl sym">:</span>
+			<span class="hl kwa">if</span><span class="hl sym">((</span>PTIAD <span class="hl sym">&amp;</span> BIT7HI<span class="hl sym">) ==</span> BIT7HI<span class="hl sym">)</span>
+				<span class="hl kwa">return</span> <span class="hl num">1</span><span class="hl sym">;</span>
+			<span class="hl kwa">else</span>
+				<span class="hl kwa">return</span> <span class="hl num">0</span><span class="hl sym">;</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span> EAST<span class="hl sym">:</span>
+			<span class="hl kwa">if</span><span class="hl sym">((</span>PTIAD <span class="hl sym">&amp;</span> BIT6HI<span class="hl sym">) ==</span> BIT6HI<span class="hl sym">)</span>
+				<span class="hl kwa">return</span> <span class="hl num">1</span><span class="hl sym">;</span>
+			<span class="hl kwa">else</span>
+				<span class="hl kwa">return</span> <span class="hl num">0</span><span class="hl sym">;</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span> SOUTH<span class="hl sym">:</span>
+			<span class="hl kwa">if</span><span class="hl sym">((</span>PTIAD <span class="hl sym">&amp;</span> BIT5HI<span class="hl sym">) ==</span> BIT5HI<span class="hl sym">)</span>
+				<span class="hl kwa">return</span> <span class="hl num">1</span><span class="hl sym">;</span>
+			<span class="hl kwa">else</span>
+				<span class="hl kwa">return</span> <span class="hl num">0</span><span class="hl sym">;</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span> WEST<span class="hl sym">:</span>
+			<span class="hl kwa">if</span><span class="hl sym">((</span>PTIAD <span class="hl sym">&amp;</span> BIT4HI<span class="hl sym">) ==</span> BIT4HI<span class="hl sym">)</span>
+				<span class="hl kwa">return</span> <span class="hl num">1</span><span class="hl sym">;</span>
+			<span class="hl kwa">else</span>
+				<span class="hl kwa">return</span> <span class="hl num">0</span><span class="hl sym">;</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">default</span><span class="hl sym">:</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+<span class="hl sym">}</span>
+
+<span class="hl slc">// CheckTapeSensor: takes FRONT or MIDDLE and returns whether it is activated</span>
+<span class="hl kwb">unsigned char</span> <span class="hl kwd">CheckTapeSensor</span><span class="hl sym">(</span><span class="hl kwb">unsigned char</span> tapeSensor<span class="hl sym">) {</span>
+
+	<span class="hl kwa">switch</span><span class="hl sym">(</span>tapeSensor<span class="hl sym">) {</span>
+
+	  <span class="hl slc">// unsigned char</span>
+		<span class="hl kwa">case</span> FRONT<span class="hl sym">:</span>
+			<span class="hl kwa">if</span> <span class="hl sym">(</span><span class="hl kwd">ADS12_ReadADPin</span><span class="hl sym">(</span><span class="hl num">3</span><span class="hl sym">) &gt;</span> TAPE_THRESHOLD<span class="hl sym">)</span>
+				<span class="hl kwa">return</span> <span class="hl num">1</span><span class="hl sym">;</span>
+			<span class="hl kwa">else</span>
+				<span class="hl kwa">return</span> <span class="hl num">0</span><span class="hl sym">;</span>
+			<span class="hl kwa">break</span><span class="hl sym">;</span>
+		<span class="hl kwa">case</span> MIDDLE<span class="hl sym">:</span>
+			<span class="hl kwa">if</span> <span class="hl sym">(</span><span class="hl kwd">ADS12_ReadADPin</span><span class="hl sym">(</span><span class="hl num">2</span><span class="hl sym">) &gt;</span> TAPE_THRESHOLD<span class="hl sym">)</span>
+				<span class="hl kwa">return</span> <span class="hl num">1</span><span class="hl sym">;</span>
+			<span class="hl kwa">else</span>
+				<span class="hl kwa">return</span> <span class="hl num">0</span><span class="hl sym">;</span>
+			<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	<span class="hl sym">}</span>
+	<span class="hl com">/*</span>
+<span class="hl com">	// unsigned int</span>
+<span class="hl com">	case FRONT: return(ADS12_ReadADPin(3)); break;</span>
+<span class="hl com">	case MIDDLE: return(ADS12_ReadADPin(2)); break;</span>
+<span class="hl com"></span>
+<span class="hl com">	}</span>
+<span class="hl com">	*/</span>
+
+
+<span class="hl sym">}</span>
+</pre>
+</body>
+</html>
+<!--HTML generated by highlight 2.13, http://www.andre-simon.de/-->

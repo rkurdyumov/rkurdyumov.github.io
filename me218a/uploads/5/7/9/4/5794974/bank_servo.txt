@@ -1,0 +1,13 @@
+Bank servo module
+
+SetBankLevel: takes left and right bank level, returns nothing
+	local variables left level, right level
+	scale local variables so that min/max bank level = lower/higher servo count
+	if left and right bank levels between $0-$3000
+		move left servo to left level, right servo to right level
+	else if left bank level > $3000 and right bank level between $0-$3000
+		move left servo to max left level, right servo to right level
+	else if left bank level between $0-$3000 and right bank level > $3000 
+		move left servo to left level, right servo to max right level
+	else
+		improper bank inputs

@@ -1,0 +1,135 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<title>TimerPIC.c</title>
+</head>
+<body style="background-color:#eeeeee">
+<pre style="color:#000000; background-color:#eeeeee; font-size:8pt; font-family:'Courier New';"><span style="color:#f27900">//#define TESTING_TIMER</span>
+
+<span style="color:#ff8000">/*</span>
+<span style="color:#ff8000">This module contains a software PIC timer based on Timer0 overflows.  It requires the following:</span>
+<span style="color:#ff8000">(1) Global interrupts enabled</span>
+<span style="color:#ff8000">(2) Timer0 not used for anything else</span>
+<span style="color:#ff8000">(3) Running off a 20MHz oscillator</span>
+<span style="color:#ff8000">(3) Copy pasting the following into the interrupt response routine in the main C file:</span>
+<span style="color:#ff8000">if (TMR0IE &amp;&amp; TMR0IF)</span>
+<span style="color:#ff8000">		TimerPIC_ISR();</span>
+<span style="color:#ff8000">(4) Including TimerPIC.h</span>
+<span style="color:#ff8000"></span>
+<span style="color:#ff8000">Originally, this module updated all the timer flags inside the interrupt response.  However, this took</span>
+<span style="color:#ff8000">over 100 us and caused problems with other precise timing interrupts (OC).  Instead the timers have been</span>
+<span style="color:#ff8000">rewritten to update outside of an interrupt.</span>
+<span style="color:#ff8000"></span>
+<span style="color:#ff8000">To use a timer:</span>
+<span style="color:#ff8000">(1) Initialize the module using TimerPIC_Init</span>
+<span style="color:#ff8000">(2) Start a timer using TimerPIC_InitTimer(Num,NewTime), where Num is 0-7 and NewTime is in ms</span>
+<span style="color:#ff8000">(3) Check if the timer has expired using if(TimerPIC_IsTimerExpired(Num) == TimerPIC_EXPIRED)</span>
+<span style="color:#ff8000">*/</span>
+
+<span style="color:#f27900">//#include &quot;pic16f777.h&quot;</span>
+<span style="color:#0080c0; font-weight:bold">#include &lt;stdio.h&gt;</span>
+<span style="color:#0080c0; font-weight:bold">#define _LEGACY_HEADERS</span>
+<span style="color:#0080c0; font-weight:bold">#include &lt;htc.h&gt;</span>
+<span style="color:#0080c0; font-weight:bold">#include</span> <span style="color:#0000ff">&quot;BITDEFS.h&quot;</span><span style="color:#0080c0; font-weight:bold"></span>
+<span style="color:#0080c0; font-weight:bold">#include</span> <span style="color:#0000ff">&quot;TimerPIC.h&quot;</span><span style="color:#0080c0; font-weight:bold"></span>
+
+<span style="color:#0080c0; font-weight:bold">#ifdef TESTING_TIMER</span>
+<span style="color:#f27900">//__CONFIG(UNPROTECT &amp; WDTDIS &amp; PWRTDIS &amp; HS);</span>
+<span style="color:#004466">__CONFIG</span> <span style="color:#ff0080; font-weight:bold">(</span>UNPROTECT <span style="color:#ff0080; font-weight:bold">&amp;</span> WDTDIS <span style="color:#ff0080; font-weight:bold">&amp;</span> PWRTDIS <span style="color:#ff0080; font-weight:bold">&amp;</span> HS<span style="color:#ff0080; font-weight:bold">);</span>
+<span style="color:#0080c0; font-weight:bold">#endif TESTING_TIMER</span>
+
+<span style="color:#0080c0">typedef</span> <span style="color:#8080c0; font-weight:bold">unsigned char</span> Tflag_t<span style="color:#ff0080; font-weight:bold">;</span>
+
+<span style="color:#0080c0">typedef</span> <span style="color:#8080c0; font-weight:bold">struct</span> timer_struc<span style="color:#ff0080; font-weight:bold">{</span>
+   	<span style="color:#8080c0; font-weight:bold">unsigned int</span> TimerTime<span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#8080c0; font-weight:bold">unsigned int</span> LastTime<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#ff0080; font-weight:bold">}</span>Timer_t<span style="color:#ff0080; font-weight:bold">;</span>
+
+<span style="color:#ff8000">/*---------------------------- Module Functions ---------------------------*/</span>
+
+<span style="color:#ff8000">/*---------------------------- Module Variables ---------------------------*/</span>
+<span style="color:#8080c0; font-weight:bold">static</span> Timer_t TMR_TimerArray<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#bb7977; font-weight:bold">sizeof</span><span style="color:#ff0080; font-weight:bold">(</span>Tflag_t<span style="color:#ff0080; font-weight:bold">)*</span><span style="color:#800080; font-weight:bold">8</span><span style="color:#ff0080; font-weight:bold">];</span> <span style="color:#f27900">// Store times for all timers</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned int</span> time<span style="color:#ff0080; font-weight:bold">;</span>  <span style="color:#ff8000">/* this is used by the default RTI routine */</span>
+
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">TimerPIC_Init</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">) {</span>
+
+	<span style="color:#f27900">// Set up overflows every 0.2048 ms: 2^8*((20MHz/4)/4)</span>
+	T0CS <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>	<span style="color:#f27900">// Internal instruction clock (fosc/4)</span>
+	PSA <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>	<span style="color:#f27900">// Assign prescaler to Timer0</span>
+	PS2 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+	PS1 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+	PS0 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>	<span style="color:#f27900">// Prescaler = 1:4;</span>
+	TMR0IF <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>	<span style="color:#f27900">// Clear flag</span>
+	TMR0IE <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>	<span style="color:#f27900">// Turn on interrupt</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+TimerPICReturn_t <span style="color:#004466">TimerPIC_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">unsigned char</span> Num<span style="color:#ff0080; font-weight:bold">,</span> <span style="color:#8080c0; font-weight:bold">unsigned int</span> NewTime<span style="color:#ff0080; font-weight:bold">) {</span>
+
+	<span style="color:#f27900">// Schedule when timer expires</span>
+	TMR_TimerArray<span style="color:#ff0080; font-weight:bold">[</span>Num<span style="color:#ff0080; font-weight:bold">].</span>TimerTime <span style="color:#ff0080; font-weight:bold">=</span> NewTime<span style="color:#ff0080; font-weight:bold">;</span>
+	TMR_TimerArray<span style="color:#ff0080; font-weight:bold">[</span>Num<span style="color:#ff0080; font-weight:bold">].</span>LastTime <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#004466">TimerPIC_GetTime</span><span style="color:#ff0080; font-weight:bold">();</span>
+	<span style="color:#bb7977; font-weight:bold">return</span> TimerPIC_OK<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+TimerPICReturn_t <span style="color:#004466">TimerPIC_IsTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">unsigned char</span> Num<span style="color:#ff0080; font-weight:bold">) {</span>
+
+	<span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">( (</span><span style="color:#004466">TimerPIC_GetTime</span><span style="color:#ff0080; font-weight:bold">() -</span> TMR_TimerArray<span style="color:#ff0080; font-weight:bold">[</span>Num<span style="color:#ff0080; font-weight:bold">].</span>LastTime<span style="color:#ff0080; font-weight:bold">) &gt;</span> TMR_TimerArray<span style="color:#ff0080; font-weight:bold">[</span>Num<span style="color:#ff0080; font-weight:bold">].</span>TimerTime<span style="color:#ff0080; font-weight:bold">) {</span>
+		<span style="color:#bb7977; font-weight:bold">return</span> TimerPIC_EXPIRED<span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#ff0080; font-weight:bold">}</span>
+	<span style="color:#bb7977; font-weight:bold">else</span>
+		<span style="color:#bb7977; font-weight:bold">return</span> TimerPIC_NOT_EXPIRED<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#8080c0; font-weight:bold">unsigned int</span> <span style="color:#004466">TimerPIC_GetTime</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">) {</span>
+	<span style="color:#bb7977; font-weight:bold">return</span> <span style="color:#ff0080; font-weight:bold">(</span>time<span style="color:#ff0080; font-weight:bold">);</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">TimerPIC_ISR</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">) {</span>
+	<span style="color:#8080c0; font-weight:bold">static unsigned char</span> counter <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+	<span style="color:#f27900">// Clear the source of the interrupt</span>
+	TMR0IF <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#f27900">// We're interrupted every 0.2048ms, so only update every 5th time</span>
+	<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(++</span>counter <span style="color:#ff0080; font-weight:bold">==</span> <span style="color:#800080; font-weight:bold">5</span><span style="color:#ff0080; font-weight:bold">) {</span>
+		<span style="color:#f27900">// keep the GetTime() timer running</span>
+		time<span style="color:#ff0080; font-weight:bold">++;</span>
+		counter <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#ff0080; font-weight:bold">}</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#0080c0; font-weight:bold">#ifdef TESTING_TIMER</span>
+
+<span style="color:#8080c0; font-weight:bold">void</span> interrupt <span style="color:#004466">TimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">) {</span>
+	<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>TMR0IE <span style="color:#ff0080; font-weight:bold">&amp;&amp;</span> TMR0IF<span style="color:#ff0080; font-weight:bold">)</span>
+		<span style="color:#004466">TimerPIC_ISR</span><span style="color:#ff0080; font-weight:bold">();</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">main</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">) {</span>
+
+	<span style="color:#f27900">// Turn off analog inputs</span>
+	PCFG0 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+	PCFG1 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+	PCFG2 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+	PCFG3 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+	<span style="color:#004466">TimerPIC_Init</span><span style="color:#ff0080; font-weight:bold">();</span>
+	<span style="color:#004466">TimerPIC_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">,</span><span style="color:#800080; font-weight:bold">100</span><span style="color:#ff0080; font-weight:bold">);</span>
+	TRISB3 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+	TRISB4 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+	RB4 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+	RB5 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+	GIE <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+	<span style="color:#bb7977; font-weight:bold">while</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">) {</span>
+		<span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#004466">TimerPIC_IsTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">) ==</span> TimerPIC_EXPIRED<span style="color:#ff0080; font-weight:bold">){</span>
+			<span style="color:#004466">TimerPIC_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">,</span><span style="color:#800080; font-weight:bold">100</span><span style="color:#ff0080; font-weight:bold">);</span>
+			RB4 ^<span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+		<span style="color:#ff0080; font-weight:bold">}</span>
+	<span style="color:#ff0080; font-weight:bold">}</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#0080c0; font-weight:bold">#endif</span>
+</pre>
+</body>
+</html>
+<!--HTML generated by highlight 2.13, http://www.andre-simon.de/-->

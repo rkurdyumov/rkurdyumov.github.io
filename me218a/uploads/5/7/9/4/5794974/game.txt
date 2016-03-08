@@ -1,0 +1,94 @@
+Game module
+
+GetPlayerBank: takes player color, returns current bank amount
+	for index from 0 to 2
+		if player matches index
+			amount is current player's bank amount
+	return amount
+
+GetCurrentStandings: takes region and standing, returns player color
+	for index1 from 0 to 3
+		for index2 from 0 to 3
+			if region matches index1 and standing matches index2
+				player color is current player in currentStandings[region][standing]
+	return player color
+
+CheckOverdraft: takes player color and money amount, returns whether an overdraft will occur
+	if player color's current bank < money amount
+		return overdraft
+	else
+		return valid
+
+SendMoney: takes player color, region, and money amount, returns nothing
+	decrement player color's bank by money amount
+	update region bank based on effectiveness rate for that region/player combination
+	update standings in that region
+	update winner
+
+DepositPlayerBank: takes no arguments, returns nothing
+	for index from 0 to 2
+		if player matches index
+			increment current player's bank amount by deposit amount for current player type
+	return amount
+
+UpdateStandings: takes region, returns nothing
+	local variables: first, second, third
+	local variables: counter1, counter2, counter3, initialized to zero
+	
+	for player from 0 to 2
+		if player's amount in region >= other two players' amounts and >0
+			increment counter1
+			player is first
+	if counter1 not incremented
+		no player occupies any standing
+		return
+	
+	for player from 0 to 2
+		if player is not first	
+			if player's amount in region > one of the other two players' amounts and >0
+			increment counter2
+			player is second
+	if counter2 not incremented
+		first occupies first place
+		no player occupies 2nd->last place
+		return
+	
+	for player from 0 to 2
+		if player is not first and not second	
+			if player's amount in region >0
+			increment counter3
+			player is third
+	if counter3 not incremented
+		first occupies first place
+		second occupies second place
+		no player occupies 3rd->last place
+		return
+
+	else
+		first occupies first place
+		second occupies second place
+		third occupies third place
+		no player occupies last place
+		return
+
+UpdateWinner: takes no arguments, return current winner
+	local variables: current winner, player totals
+	for index1 from 0 to 2
+		for index2 from 0 to 3
+			if region matches index 2 and player color in 1st place of region matches index 1
+				increment player total by value of the region
+	
+	return player color
+
+	for index from 0 to 2
+		if player's total >= other two players' totals
+			current winner is player
+	return current winner
+
+StartGame: takes no arguments, returns nothing
+	set initial player bank levels
+	set initial region banks to zero for each player
+	set current standings in each region to no player for all places
+	set value for each region
+	set periodic deposit amount for each player
+	set money rates for each region based on player

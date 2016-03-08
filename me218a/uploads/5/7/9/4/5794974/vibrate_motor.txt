@@ -1,0 +1,17 @@
+Vibrate motor module
+
+VibrateMotor: takes left/right/both motor(s), returns nothing
+	if LEFT_MOTOR	
+		set left motor full duty cycle
+	if RIGHT_MOTOR
+		set right motor full duty cycle
+	if BOTH_MOTORS
+		set both motors full duty cycle
+
+StopVibrateMotor: takes left/right/both motor(s), returns nothing
+	if LEFT_MOTOR	
+		set left motor no duty cycle
+	if RIGHT_MOTOR
+		set right motor no duty cycle
+	if BOTH_MOTORS
+		set both motors no duty cycle

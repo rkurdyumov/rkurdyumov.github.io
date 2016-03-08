@@ -1,0 +1,45 @@
+/*********************Main Module************************/
+
+//InitSCI
+
+Set Baud Rate 9600Hz = 24MHz / (16*156)
+Select Word Length and Wake Up
+No Interrupts, Transmit/Receive Enabled
+
+
+// CheckSendTimer
+  
+if send timer is expired
+	set new message flag
+	clear timer flag and restart
+
+// main 
+
+    InitIC                         
+    InitPins
+    InitTimers
+    AtollLEDOff
+    InitBoostServo
+    InitDebug
+    
+    while(1) 
+    	TransmitSM	
+    	ReceiveMessageSM
+    	CheckSensorTimeout
+    	CheckBoostRecharge
+    	UpdateDebug
+
+    	
+    	If message received 
+    		reset message flag
+    	  	Check if it was a message from another XBEE
+    	    	Check if it was a broadcast message
+      	        Check if it was an atoll capture
+      	            	Light the Appripriate LEDs
+      	        Check if it was a new game message
+     			Turn off all LEDs
+      	                
+      	If send timer is expired
+		Create data opacket to send with Speed, Direction, and Heading 
+		set new message flag
+

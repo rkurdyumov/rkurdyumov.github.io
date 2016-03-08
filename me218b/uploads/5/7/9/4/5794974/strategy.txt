@@ -1,0 +1,319 @@
+DriveControlOn: takes no arguments, returns nothing
+If the right sensor doesn't see a beacon
+	Increase right wheel speed, decrease left wheel speed
+If the left sensor doesn't see a beacon
+	Increase left wheel speed, decrease right wheel speed
+If neither sees a beacon, or they both do
+	Keep speeds equal
+
+InitStrategy: takes no arguments, returns nothing
+set the currentState to DRIVING_TO_DISPENSER_START
+Load in the current gameInfo
+
+ChooseNextDispenser: takes no arguments, returns the dispenser we are going to grab balls from
+sWitch on teamColor
+	case RED_TEAM: return 1
+	case GREEN_TEAM: return 2
+
+ReInitializeGame: takes no arguments, returns nothing
+Reset the gameinfo struct to original values
+Set the currentState to DRIVING_TO_DISPENSER_START
+
+UpdateStrategy: takes no arguments, returns nothing
+switch on the current game condition
+	case PAUSED:
+		If the prevGameCondition was RUNNING, ReInitializeGame
+	case RED_WON:
+		If the prevGameCondition was RUNNING
+				StopDriveMotors and LiftMotorStop
+				If We are RED_TEAM:
+				Celebrate
+			Else
+				Don't celebrate
+	case GREEN_WON:
+		If the prevGameCondition was RUNNING
+			StopDriveMotors and LiftMotorStop
+			If We are GREEN_TEAM:
+				Celebrate
+			Else
+				Don't celebrate
+	case RUNNING:
+		If the prevGameCondition was PAUSED
+			Set the currentState to DRIVING_TO_DISPENSER_START
+			Drive forward
+		Get the nextState based on the return from HandleRunningGame(currentState)
+		Update the currentState based on nextState
+Update the prevGameCondition based on the current game condition
+
+HandleRunningGame: takes the current_state, returns the next_state
+switch on the current_state
+	case DRIVING_TO_DISPENSER_START:
+		If the ultrasonic distance is less than the Y distance to dispenser
+			StopDriveMotors
+			Rotate CCW
+			Change the hoop to 3 pt size
+			Set the nextState to ROTATING_TO_ALIGN_DISPENSER_FAR
+		Else
+			Set the nextState to DRIVING_TO_DISPENSER_START
+	
+	case ROTATING_TO_ALIGN_DISPENSER_FAR:
+		switch on teamColor
+			case RED_TEAM:
+				If we detect the DISPENSER_0 beacon with the left sensor
+					StopDriveMotors
+					Update the currDispenser to DISPENSER_0 
+					Set the nextState to QUERYING_DISPENSERS
+				else
+					Set the nextState to ROTATING_TO_ALIGN_DISPENSER_FAR
+			case GREEN_TEAM:
+				If we detect the DISPENSER_3 beacon with the left sensor
+					StopDriveMotors
+					Update the currDispenser to DISPENSER_0 
+					Set the nextState to QUERYING_DISPENSERS
+				else
+					Set the nextState to ROTATING_TO_ALIGN_DISPENSER_FAR
+	
+	case QUERYING_DISPENSERS:
+		If sending the initial query
+			Send SPI command to query currDispenser
+			Update querySent flag to 1
+			Start 30s ball respawn timer	
+			Set the nextState to QUERYING_DISPENSERS
+		Else if sending first command, but not initial query, and 30s ball respawn timer has expired
+			Clear expired timer
+			Send SPI command to query currDispenser
+			Update querySent flag to 1
+			Start next 30s ball respawn timer
+			Set the nextState to QUERYING_DISPENSERS
+		Else if got query back and haven't queried the last dispenser yet
+			Update queryComplete to 0
+			Update querySent to 0
+			Choose the next dispenser
+			Update how many balls are remaining in the current dispenser based on availableBalls
+			switch on teamColor
+				case RED_TEAM
+					Set the number of availableBalls on opposite side DISPENSER_0 to 3
+				case GREEN_TEAM
+					Set the number of availableBalls on opposite side DISPENSER_3 to 3
+			If we are done with the initial query, set initialQuery to 0
+			Set the nextState to COLLECTING_BALLS
+		Else
+			Set the nextState to QUERYING_DISPENSERS
+	
+	case COLLECTING_BALLS:
+		If we have 3 remainingBalls and haven't sent a query
+			Send a dispense command for the currDispenser
+			Decrement remainingBalls
+			Start 2s ball dispersion timer
+			Update querySent to 1
+			Set the nextState to COLLECTING_BALLS
+		Else if we have some remainingBalls and we just had a ballDispensed and the 2s ball dispersion timer expired
+			Clear expired timer
+			Reset ballDispensed to 0
+			Decrement remainingBalls
+			Send a dispense command for the currDispenser
+			Start 2s ball dispersion timer
+			Update querySent to 1
+			Set the nextState to COLLECTING_BALLS
+		Else if we have no balls remaining and we just had a ballDispensed and the 2s ball dispersion timer expired
+			Clear expired timer
+			Reset querySent to 0
+			Reset ballDispensed to 0
+			switch on the teamColor
+				case RED_TEAM:
+					switch on the currDispenser
+						case DISPENSER_0
+							Drive both motors forward
+							Start midpoint timer
+							Set the nextState to DRIVING_TO_MIDLINE
+						case DISPENSER_	1
+							Drive both motors forward
+							Set the nextState to DRIVING_TO_DISPENSER_FAR
+				case GREEN_TEAM:
+					switch on the currDispenser
+						case DISPENSER_3
+							Drive both motors forward
+							Start midpoint timer
+							Set the nextState to DRIVING_TO_MIDLINE
+						case DISPENSER_	2
+							Drive both motors forward
+							Set the nextState to DRIVING_TO_DISPENSER_FAR
+		Else
+			Set the nextState to COLLECTING_BALLS
+
+	case DRIVING_TO_DISPENSER_FAR:
+		If the ultrasonic distance is greater than CONTROL_DISTANCE
+			Turn drive control on
+			Set the nextState to DRIVING_TO_DISPENSER_FAR
+		Else if the ultrasonic distance is less than or equal to CONTROL_DISTANCE and greater than the x distance to dispenser
+			Drive forward
+			Set the nextState to DRIVING_TO_DISPENSER_FAR
+		Else if the ultrasonic distance is less than the x distance to dispenser
+			StopDriveMotors
+			RotateCCW
+			Set the nextState to ROTATING_TO_ALIGN_DISPENSER_CLOSE
+		Else
+			Set the nextState to DRIVING_TO_DISPENSER_FAR
+	
+	case ROTATING_TO_ALIGN_DISPENSER_CLOSE
+		switch on the teamColor
+			case RED_TEAM
+				If the left beacon sensor sees DISPENSER_1
+					StopDriveMotors
+					Update number of remainingBalls in DISPENSER_0
+					Update the currDispenser to DISPENSER_0
+					Set the nextState to COLLECTING_BALLS	
+				Else
+					Set the nextState to ROTATING_TO_ALIGN_DISPENSER_CLOSE
+			case GREEN_TEAM
+				If the left beacon sensor sees DISPENSER_2
+					StopDriveMotors
+					Update number of remainingBalls in DISPENSER_3
+					Update the currDispenser to DISPENSER_3
+					Set the nextState to COLLECTING_BALLS	
+				Else
+					Set the nextState to ROTATING_TO_ALIGN_DISPENSER_CLOSE
+
+	case DRIVING_TO_MIDLINE
+		Turn drive control on
+		If the middle tape sensor is activated and the midpoint timer has expired
+			Clear expired timer
+			StopDriveMotors
+			RotateCCW
+			Set the nextState to ROTATING_TO_ALIGN_HOOP
+		Else
+			Set the nextState to DRIVING_TO_MIDLINE
+	
+	case ROTATING_TO_ALIGN_HOOP
+		switch on the teamColor
+			case RED_TEAM
+				If the right beacon sensor sees HOOP_RED
+					StopDriveMotors
+					Start the settle timer
+					Set the nextState to WAITING_TO_SETTLE
+				Else
+					Set the nextState to ROTATING_TO_ALIGN_HOOP
+			case GREEN_TEAM
+				If the right beacon sensor sees HOOP_GREEN
+					StopDriveMotors
+					Start the settle timer
+					Set the nextState to WAITING_TO_SETTLE
+				Else
+					Set the nextState to ROTATING_TO_ALIGN_HOOP
+	
+	case WAITING_TO_SETTLE
+		If the settle timer has expired
+			Clear expired timer
+			Set the nextState to DRIVING_TO_DUNK
+		Else
+			Set the nextState to WAITING_TO_SETTLE
+	
+	case DRIVING_TO_DUNK
+		If the ultrasonic distance is greater than hoop distance
+			Drive forward
+			Set the nextState to DRIVING_TO_DUNK
+		Else if the ultrasonic distance is less than hoop distance
+			Drive reverse
+			Set the nextState to DRIVING_TO_DUNK
+		Else  (the distance is exactly right)
+			StopDriveMotors
+			RotateCW
+			Set the nextState to ALIGNING_CLOSE_DUNK
+
+	case ALIGNING_CLOSE_DUNK
+		switch on the teamColor
+			case RED_TEAM
+				If the right beacon sensor sees DISPENSER_1
+					StopDriveMotors
+					RotateCCW
+					Set the nextState to ALIGNING_HOOP_DUNK
+				Else
+					Set the nextState to ALIGNING_CLOSE_DUNK
+			case GREEN_TEAM
+				If the right beacon sensor sees DISPENSER_2
+					StopDriveMotors
+					RotateCCW
+					Set the nextState to ALIGNING_HOOP_DUNK
+				Else
+					Set the nextState to ALIGNING_CLOSE_DUNK
+	
+	case ALIGNING_HOOP_DUNK
+		switch on the teamColor
+			case RED_TEAM
+				If the right beacon sensor sees HOOP_RED
+					StopDriveMotors
+					LiftMotorUp
+					Set the nextState to RAISING_CAGE
+				Else
+					Set the nextState to ALIGNING_HOOP_DUNK
+			case GREEN_TEAM
+				If the right beacon sensor sees HOOP_GREEN
+					StopDriveMotors
+					LiftMotorUp
+					Set the nextState to RAISING_CAGE
+				Else
+					Set the nextState to ALIGNING_HOOP_DUNK
+
+	case RAISING_CAGE
+		If the top limit switch is pressed and we are currently LIFTING
+			LiftMotorStop	
+			Start dumping ball timer
+			Set the nextState to DUMPING_BALLS
+		Else
+			Set the nextState to RAISING_CAGE
+
+	case DUMPING_BALLS
+		If the dumping ball timer has expired
+			LiftMotorDown
+			Set the nextState to LOWERING_CAGE
+		Else
+			Set the nextState to DUMPING_BALLS
+
+	case LOWERING_CAGE
+		If the bottom limit switch is pressed and we are currently LOWERING
+			LiftMotorStop
+			Drive forward
+			Set the nextState to BACKING_UP_FROM_HOOP
+		Else
+			Set the nextState to LOWERING_CAGE
+	
+	case BACKING_UP_FROM_HOOP
+		If the ultrasonic distance is less than the y distance to dispenser
+			StopDriveMotors
+			RotateCW
+			Set the nextState to REALIGN_DISPENSER_CLOSE
+		Else
+			Set the nextState to BACKING_UP_FROM_HOOP
+
+	case REALIGN_DISPENSER_CLOSE
+		switch on the teamColor
+			case RED_TEAM
+				If the right beacon sensor detected DISPENSER_1
+					StopDriveMotors
+					Drive forward
+					Set the nextState to DRIVING_TO_DISPENSER_CLOSE
+				Else
+					Set the nextState to REALIGN_DISPENSER_CLOSE
+			case GREEN_TEAM
+				If the right beacon sensor detected DISPENSER_2
+					StopDriveMotors
+					Drive forward
+					Set the nextState to DRIVING_TO_DISPENSER_CLOSE
+				Else
+					Set the nextState to REALIGN_DISPENSER_CLOSE
+
+	case DRIVING_TO_DISPENSER_CLOSE
+		If the ultrasonic distance is greater than the CONTROL_DISTANCE
+			Turn drive control on	
+			Set the nextState to DRIVING_TO_DISPENSER_CLOSE
+		Else if the ultrasonic distance is less than or equal to the CONTROL_DISTANCE and greater than the x distance to dispenser
+			Drive forward
+			Set the nextSate to DRIVING_TO_DISPENSER_CLOSE
+		Else if the ultrasonic distance is less than the x distance to dispenser
+			StopDriveMotors
+			RotateCCW
+			Set the nextState to ROTATING_TO_ALIGN_DISPENSER_FAR
+		Else
+			Set the nextState to DRIVING_TO_DISPENSER_CLOSE
+
+	return the nextState

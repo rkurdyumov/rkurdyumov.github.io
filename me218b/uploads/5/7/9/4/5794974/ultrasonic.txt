@@ -1,0 +1,33 @@
+Initialize Ultrasonic: takes no arguments, returns nothing
+Initialize the lastRisingEdge and pulseWidth
+Initialize the input capture to capture rising and falling edges
+Initialize the output compare to have no pin connected and schedule the next rising edge
+EnableInterrupts
+
+ReturnUltrasonicDistance: takes no arguments, returns unsigned int distance in cm
+The return signal period is 3/4 of the pulseWidth (750 kHz rate) divided by 2 (ultrasonic to target and back)
+Convert high time to distance in cm
+Return distance
+
+OutputPulse (output compare)
+If currently high and not waiting to relinquish control
+	Lower line
+	Set timer to wait to relinquish control
+	Set relinquish control flag to true
+Else if relinquish control flag is true
+	Schedule next rising edge
+	Change port to input
+	Set relinquish control flag to false (released control to sensor)
+Else
+	Change port to input
+	Raise line
+	Schedule falling edge
+Clear flag
+
+InputPulse: (Input capture)
+If currently high
+	Record time as rising edge time
+Else currently low
+	subtract current time from rising edge time to get high time
+	If the high time is greater than our PWM width, save it as pulseWidth (valid return signal)
+Clear flag

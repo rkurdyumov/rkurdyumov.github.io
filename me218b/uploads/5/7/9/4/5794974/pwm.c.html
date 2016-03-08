@@ -1,0 +1,307 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<title>PWM.c</title>
+<link rel="stylesheet" type="text/css" href="highlight.css">
+</head>
+<body class="hl">
+<pre class="hl"><span class="hl slc">//#define PWM_TEST</span>
+
+<span class="hl slc">// Import Libraries</span>
+<span class="hl dir">#include &lt;S12C32bits.h&gt;</span>
+<span class="hl dir">#include &lt;hidef.h&gt;</span>
+<span class="hl dir">#include &lt;mc9s12e128.h&gt;</span>
+<span class="hl dir">#include &lt;stdio.h&gt;</span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;PWM.h&quot;</span><span class="hl dir"></span>
+
+<span class="hl com">/*----------------------------- Module Defines ----------------------------*/</span>
+<span class="hl slc">// Define Maximum channels to be 3</span>
+<span class="hl dir">#define MAX_CHANNELS   5</span>
+
+<span class="hl slc">// Define Min Duty Cycle to 0</span>
+<span class="hl dir">#define PWMS12_MIN_DC   0</span>
+<span class="hl slc">// Define Max Duty Cycle to 100</span>
+<span class="hl dir">#define PWMS12_MAX_DC   100</span>
+<span class="hl slc">// Define PWM Error/OK Constants</span>
+<span class="hl dir">#define PWMS12_ERR     -1</span>
+<span class="hl dir">#define PWMS12_OK       0</span>
+
+<span class="hl com">/*---------------------------- Module Variables ---------------------------*/</span>
+<span class="hl slc">// Create a module variable containing the Duty Cycle register of each PWM channel</span>
+<span class="hl kwb">static unsigned char</span> <span class="hl sym">*</span> <span class="hl kwb">const</span> DutyRegisters<span class="hl sym">[] = { &amp;</span>PWMDTY0<span class="hl sym">, &amp;</span>PWMDTY1<span class="hl sym">, &amp;</span>PWMDTY2<span class="hl sym">, &amp;</span>PWMDTY3<span class="hl sym">, &amp;</span>PWMDTY4<span class="hl sym">};</span>
+
+<span class="hl com">/*------------------------------ Module Functions ------------------------------*/</span>
+<span class="hl slc">// PWMPeriod: Takes in an unsigned long value representing the frequency, returns nothing</span>
+<span class="hl kwb">void</span> <span class="hl kwd">PWMFrequency</span><span class="hl sym">(</span><span class="hl kwb">unsigned char</span> group<span class="hl sym">,</span> <span class="hl kwb">unsigned long</span> frequency<span class="hl sym">){</span>
+	<span class="hl kwb">unsigned char</span> PreScalingPower <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	<span class="hl kwb">unsigned char</span> PreScaleValue <span class="hl sym">=</span> <span class="hl num">1</span><span class="hl sym">;</span>
+	<span class="hl kwb">unsigned char</span> ScalerValue<span class="hl sym">;</span>
+	<span class="hl kwb">unsigned long</span> ScalingFactor<span class="hl sym">;</span>
+
+	<span class="hl slc">// Multiply input frequency by 2</span>
+	frequency <span class="hl sym">*=</span> <span class="hl num">2</span><span class="hl sym">;</span>
+
+  <span class="hl slc">// Create a scaling factor number which will be the desired product of the prescaler and scaler</span>
+	ScalingFactor <span class="hl sym">=</span> <span class="hl num">120000</span><span class="hl sym">/</span>frequency<span class="hl sym">;</span>
+
+  <span class="hl slc">// While Scaling factor can be divided by 2</span>
+	<span class="hl kwa">while</span> <span class="hl sym">(</span>ScalingFactor <span class="hl sym">%</span> <span class="hl num">2</span> <span class="hl sym">==</span> <span class="hl num">0</span><span class="hl sym">){</span>
+    <span class="hl slc">// Divide the scaling factor by 2 and store it into the scaling facor</span>
+    ScalingFactor <span class="hl sym">=</span> ScalingFactor<span class="hl sym">/</span><span class="hl num">2</span><span class="hl sym">;</span>
+    <span class="hl slc">// Count how many times the scaling factor can be divided by 2</span>
+    PreScalingPower<span class="hl sym">++;</span>
+	<span class="hl sym">}</span>
+
+  <span class="hl slc">// Set the Scaler Value to be the current value of the ScalingFactor</span>
+	ScalerValue <span class="hl sym">= (</span><span class="hl kwb">unsigned char</span><span class="hl sym">)</span>ScalingFactor<span class="hl sym">;</span>
+
+	<span class="hl kwa">if</span><span class="hl sym">(</span>group <span class="hl sym">==</span> <span class="hl num">0</span><span class="hl sym">) {</span>
+    <span class="hl slc">// Set pre-scaler for clock A</span>
+    PWMPRCLK <span class="hl sym">&amp;= ~(</span>_S12_PCKA0 <span class="hl sym">|</span> _S12_PCKA1 <span class="hl sym">|</span> _S12_PCKA2<span class="hl sym">);</span>
+	<span class="hl sym">}</span>
+	<span class="hl kwa">else if</span><span class="hl sym">(</span>group <span class="hl sym">==</span> <span class="hl num">1</span><span class="hl sym">) {</span>
+    <span class="hl slc">// Set pre-scaler for clock B</span>
+    PWMPRCLK <span class="hl sym">&amp;= ~(</span>_S12_PCKB0 <span class="hl sym">|</span> _S12_PCKB1 <span class="hl sym">|</span> _S12_PCKB2<span class="hl sym">);</span>
+	<span class="hl sym">}</span>
+
+    <span class="hl kwa">if</span> <span class="hl sym">(</span>group <span class="hl sym">==</span> <span class="hl num">0</span><span class="hl sym">) {</span>
+
+	    <span class="hl slc">// Take the the prescaling power and apply the correct bit values to set to the prescaler register</span>
+	    <span class="hl kwa">switch</span> <span class="hl sym">(</span>PreScalingPower<span class="hl sym">){</span>
+
+	    	<span class="hl kwa">case</span> <span class="hl num">0</span><span class="hl sym">:</span> <span class="hl slc">// divide by 1</span>
+	    	<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	    	<span class="hl kwa">case</span> <span class="hl num">1</span><span class="hl sym">:</span> <span class="hl slc">// divide by 2</span>
+	    	PWMPRCLK <span class="hl sym">|=</span> _S12_PCKA0<span class="hl sym">;</span>
+	    	<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	    	<span class="hl kwa">case</span> <span class="hl num">2</span><span class="hl sym">:</span> <span class="hl slc">// divide by 4</span>
+	    	PWMPRCLK <span class="hl sym">|=</span> _S12_PCKA1<span class="hl sym">;</span>
+	    	<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	    	<span class="hl kwa">case</span> <span class="hl num">3</span><span class="hl sym">:</span> <span class="hl slc">// divide by 8</span>
+	    	PWMPRCLK <span class="hl sym">|= (</span>_S12_PCKA0<span class="hl sym">|</span>_S12_PCKA1<span class="hl sym">);</span>
+	    	<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	    	<span class="hl kwa">case</span> <span class="hl num">4</span><span class="hl sym">:</span> <span class="hl slc">// divide by 16</span>
+	    	PWMPRCLK <span class="hl sym">|=</span> _S12_PCKA2<span class="hl sym">;</span>
+	    	<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	    	<span class="hl kwa">case</span> <span class="hl num">5</span><span class="hl sym">:</span> <span class="hl slc">// divide by 32</span>
+	    	PWMPRCLK <span class="hl sym">|= (</span>_S12_PCKA0<span class="hl sym">|</span>_S12_PCKA2<span class="hl sym">);</span>
+	    	<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	    	<span class="hl kwa">case</span> <span class="hl num">6</span><span class="hl sym">:</span> <span class="hl slc">// divide by 64</span>
+	    	PWMPRCLK <span class="hl sym">|= (</span>_S12_PCKA1<span class="hl sym">|</span>_S12_PCKA2<span class="hl sym">);</span>
+	    	<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	    	<span class="hl kwa">case</span> <span class="hl num">7</span><span class="hl sym">:</span> <span class="hl slc">// divide by 128</span>
+	    	PWMPRCLK <span class="hl sym">|= (</span>_S12_PCKA0 <span class="hl sym">|</span> _S12_PCKA1 <span class="hl sym">|</span> _S12_PCKA2<span class="hl sym">);</span>
+	    	<span class="hl kwa">break</span><span class="hl sym">;</span>
+	    <span class="hl sym">}</span>
+    <span class="hl sym">}</span>
+    <span class="hl kwa">else if</span> <span class="hl sym">(</span>group <span class="hl sym">==</span> <span class="hl num">1</span><span class="hl sym">) {</span>
+
+    	<span class="hl kwa">switch</span> <span class="hl sym">(</span>PreScalingPower<span class="hl sym">){</span>
+
+	    	<span class="hl kwa">case</span> <span class="hl num">0</span><span class="hl sym">:</span> <span class="hl slc">// divide by 1</span>
+	    	<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	    	<span class="hl kwa">case</span> <span class="hl num">1</span><span class="hl sym">:</span> <span class="hl slc">// divide by 2</span>
+	    	PWMPRCLK <span class="hl sym">|=</span> _S12_PCKB0<span class="hl sym">;</span>
+	    	<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	    	<span class="hl kwa">case</span> <span class="hl num">2</span><span class="hl sym">:</span> <span class="hl slc">// divide by 4</span>
+	    	PWMPRCLK <span class="hl sym">|=</span> _S12_PCKB1<span class="hl sym">;</span>
+	    	<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	    	<span class="hl kwa">case</span> <span class="hl num">3</span><span class="hl sym">:</span> <span class="hl slc">// divide by 8</span>
+	    	PWMPRCLK <span class="hl sym">|= (</span>_S12_PCKB0<span class="hl sym">|</span>_S12_PCKB1<span class="hl sym">);</span>
+	    	<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	    	<span class="hl kwa">case</span> <span class="hl num">4</span><span class="hl sym">:</span> <span class="hl slc">// divide by 16</span>
+	    	PWMPRCLK <span class="hl sym">|=</span> _S12_PCKB2<span class="hl sym">;</span>
+	    	<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	    	<span class="hl kwa">case</span> <span class="hl num">5</span><span class="hl sym">:</span> <span class="hl slc">// divide by 32</span>
+	    	PWMPRCLK <span class="hl sym">|= (</span>_S12_PCKB0<span class="hl sym">|</span>_S12_PCKB2<span class="hl sym">);</span>
+	    	<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	    	<span class="hl kwa">case</span> <span class="hl num">6</span><span class="hl sym">:</span> <span class="hl slc">// divide by 64</span>
+	    	PWMPRCLK <span class="hl sym">|= (</span>_S12_PCKB1<span class="hl sym">|</span>_S12_PCKB2<span class="hl sym">);</span>
+	    	<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+	    	<span class="hl kwa">case</span> <span class="hl num">7</span><span class="hl sym">:</span> <span class="hl slc">// divide by 128</span>
+	    	PWMPRCLK <span class="hl sym">|= (</span>_S12_PCKB0 <span class="hl sym">|</span> _S12_PCKB1 <span class="hl sym">|</span> _S12_PCKB2<span class="hl sym">);</span>
+	    	<span class="hl kwa">break</span><span class="hl sym">;</span>
+	    <span class="hl sym">}</span>
+    <span class="hl sym">}</span>
+
+    <span class="hl kwa">if</span><span class="hl sym">(</span>group <span class="hl sym">==</span> <span class="hl num">0</span><span class="hl sym">) {</span>
+    <span class="hl slc">// Use scaled clock A for group A</span>
+    PWMCLK <span class="hl sym">|= (</span>_S12_PCLK0 <span class="hl sym">|</span> _S12_PCLK1 <span class="hl sym">|</span> _S12_PCLK4<span class="hl sym">);</span>
+    <span class="hl slc">// Set the ScalerValue for the Scaled Clock</span>
+    PWMSCLA <span class="hl sym">=</span> ScalerValue<span class="hl sym">;</span>
+    <span class="hl sym">}</span>
+    <span class="hl kwa">else if</span><span class="hl sym">(</span>group <span class="hl sym">==</span> <span class="hl num">1</span><span class="hl sym">) {</span>
+    <span class="hl slc">// Use scaled clock B for group B</span>
+    PWMCLK <span class="hl sym">|= (</span>_S12_PCLK2 <span class="hl sym">|</span> _S12_PCLK3<span class="hl sym">);</span>
+    <span class="hl slc">// Set the ScalerValue for the Scaled Clock</span>
+    PWMSCLB <span class="hl sym">=</span> ScalerValue<span class="hl sym">;</span>
+    <span class="hl sym">}</span>
+<span class="hl sym">}</span>
+
+<span class="hl slc">// PWMDutyCycle: Takes in two chars representing DutyCycle and channel,</span>
+<span class="hl slc">//               returns a char representing error or OK</span>
+<span class="hl kwb">signed char</span> <span class="hl kwd">PWMDutyCycle</span><span class="hl sym">(</span><span class="hl kwb">unsigned char</span> channel<span class="hl sym">,</span> <span class="hl kwb">unsigned char</span> dutyCycle<span class="hl sym">){</span>
+    <span class="hl slc">// If DutyCycle and Channel Number exceed the maximum, return error</span>
+    <span class="hl kwa">if</span> <span class="hl sym">((</span>channel <span class="hl sym">&gt;=</span> MAX_CHANNELS<span class="hl sym">) || (</span>dutyCycle <span class="hl sym">&gt;</span> PWMS12_MAX_DC<span class="hl sym">))</span>
+        <span class="hl kwa">return</span> PWMS12_ERR<span class="hl sym">;</span>
+    <span class="hl kwa">else</span>
+    <span class="hl slc">// Otherwise, change the Duty Cycle in the DutyCycle register for the respective channel, return OK</span>
+        <span class="hl sym">*</span>DutyRegisters<span class="hl sym">[</span>channel<span class="hl sym">] =</span> dutyCycle<span class="hl sym">;</span>
+    <span class="hl kwa">return</span> PWMS12_OK<span class="hl sym">;</span>
+<span class="hl sym">}</span>
+
+<span class="hl slc">// PWM Polarity: Takes a char representing the channel, and a char representing the direction of polarity and sets the polarity</span>
+<span class="hl kwb">void</span> <span class="hl kwd">PWMPolarity</span><span class="hl sym">(</span><span class="hl kwb">char</span> Ch<span class="hl sym">,</span> <span class="hl kwb">char</span> Dir<span class="hl sym">){</span>
+	<span class="hl kwa">switch</span> <span class="hl sym">(</span>Dir<span class="hl sym">){</span>
+		<span class="hl kwa">case</span> <span class="hl num">1</span><span class="hl sym">:</span> <span class="hl slc">// If Active HI desired</span>
+			<span class="hl kwa">if</span> <span class="hl sym">(</span>Ch <span class="hl sym">==</span> <span class="hl num">0</span><span class="hl sym">)</span> <span class="hl slc">// If Channel 0 (LEFTWHEEL)</span>
+				PWMPOL <span class="hl sym">|=</span> _S12_PPOL0<span class="hl sym">;</span> <span class="hl slc">// Set Channel 0 to active HI</span>
+			<span class="hl kwa">else if</span> <span class="hl sym">(</span>Ch <span class="hl sym">==</span> <span class="hl num">1</span><span class="hl sym">)</span> <span class="hl slc">// If Channel 1 (RIGHTWHEEL)</span>
+				PWMPOL <span class="hl sym">|=</span> _S12_PPOL1<span class="hl sym">;</span> <span class="hl slc">// Set Channel 1 to active HI</span>
+			<span class="hl kwa">else if</span> <span class="hl sym">(</span>Ch <span class="hl sym">==</span> <span class="hl num">2</span><span class="hl sym">)</span> <span class="hl slc">// If Channel 1 (RIGHTWHEEL)</span>
+				PWMPOL <span class="hl sym">|=</span> _S12_PPOL2<span class="hl sym">;</span> <span class="hl slc">// Set Channel 2 to active HI</span>
+			<span class="hl kwa">else if</span> <span class="hl sym">(</span>Ch <span class="hl sym">==</span> <span class="hl num">3</span><span class="hl sym">)</span> <span class="hl slc">// If Channel 1 (RIGHTWHEEL)</span>
+				PWMPOL <span class="hl sym">|=</span> _S12_PPOL3<span class="hl sym">;</span> <span class="hl slc">// Set Channel 3 to active HI</span>
+			<span class="hl kwa">else if</span> <span class="hl sym">(</span>Ch <span class="hl sym">==</span> <span class="hl num">4</span><span class="hl sym">)</span> <span class="hl slc">// If Channel 1 (RIGHTWHEEL)</span>
+				PWMPOL <span class="hl sym">|=</span> _S12_PPOL4<span class="hl sym">;</span> <span class="hl slc">// Set Channel 4 to active HI</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span> <span class="hl num">0</span><span class="hl sym">:</span> <span class="hl slc">// If Active LO desired</span>
+			<span class="hl kwa">if</span> <span class="hl sym">(</span>Ch <span class="hl sym">==</span> <span class="hl num">0</span><span class="hl sym">)</span> <span class="hl slc">// If Channel 0 (LEFTWHEEL)</span>
+				PWMPOL <span class="hl sym">&amp;= ~</span>_S12_PPOL0<span class="hl sym">;</span>  <span class="hl slc">// Set Channel 0 to active LO</span>
+			<span class="hl kwa">else if</span> <span class="hl sym">(</span>Ch <span class="hl sym">==</span> <span class="hl num">1</span><span class="hl sym">)</span> <span class="hl slc">// If Channel 1 (RIGHTWHEEL)</span>
+				PWMPOL <span class="hl sym">&amp;= ~</span>_S12_PPOL1<span class="hl sym">;</span> <span class="hl slc">// Set Channel 1 to active LO</span>
+			<span class="hl kwa">else if</span> <span class="hl sym">(</span>Ch <span class="hl sym">==</span> <span class="hl num">2</span><span class="hl sym">)</span> <span class="hl slc">// If Channel 1 (RIGHTWHEEL)</span>
+				PWMPOL <span class="hl sym">&amp;= ~</span>_S12_PPOL2<span class="hl sym">;</span> <span class="hl slc">// Set Channel 2 to active LO</span>
+			<span class="hl kwa">else if</span> <span class="hl sym">(</span>Ch <span class="hl sym">==</span> <span class="hl num">3</span><span class="hl sym">)</span> <span class="hl slc">// If Channel 1 (RIGHTWHEEL)</span>
+				PWMPOL <span class="hl sym">&amp;= ~</span>_S12_PPOL3<span class="hl sym">;</span> <span class="hl slc">// Set Channel 3 to active LO</span>
+			<span class="hl kwa">else if</span> <span class="hl sym">(</span>Ch <span class="hl sym">==</span> <span class="hl num">4</span><span class="hl sym">)</span> <span class="hl slc">// If Channel 1 (RIGHTWHEEL)</span>
+				PWMPOL <span class="hl sym">&amp;= ~</span>_S12_PPOL4<span class="hl sym">;</span> <span class="hl slc">// Set Channel 4 to active LO</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">default</span><span class="hl sym">:</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+<span class="hl sym">}</span>
+
+<span class="hl slc">// PWMOnOff: Takes 3 chars corresponding to channel 0,1,2.</span>
+<span class="hl slc">// 			 A value of 0 disables the PWMsubsystem on that channel</span>
+<span class="hl slc">//			 A value of 1 enables the PWMsubsystem on that channel</span>
+<span class="hl slc">//			 Sets PWMsubsystem to an initial period</span>
+<span class="hl slc">//			 Returns nothing.</span>
+<span class="hl kwb">void</span> <span class="hl kwd">PWMOnOff</span><span class="hl sym">(</span><span class="hl kwb">char</span> Ch0<span class="hl sym">,</span> <span class="hl kwb">char</span> Ch1<span class="hl sym">,</span> <span class="hl kwb">char</span> Ch2<span class="hl sym">,</span> <span class="hl kwb">char</span> Ch3<span class="hl sym">,</span> <span class="hl kwb">char</span> Ch4<span class="hl sym">){</span>
+	<span class="hl kwb">unsigned char</span> i<span class="hl sym">;</span>
+
+	<span class="hl slc">// Turn off PWM and don't map any ports to PWM</span>
+	PWME <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+	MODRR <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+
+	<span class="hl slc">// Set Polarity for each PWM channel (output initially high)</span>
+	PWMPOL <span class="hl sym">= (</span>_S12_PPOL0 <span class="hl sym">|</span> _S12_PPOL1 <span class="hl sym">|</span> _S12_PPOL2 <span class="hl sym">|</span> _S12_PPOL3<span class="hl sym">|</span> _S12_PPOL4<span class="hl sym">);</span>
+	<span class="hl slc">// Ser PWMPeriod to have 100 count resolution</span>
+	PWMPER0 <span class="hl sym">=</span> PWMPER1 <span class="hl sym">=</span> PWMPER2 <span class="hl sym">=</span> PWMPER3 <span class="hl sym">=</span> PWMPER4 <span class="hl sym">=</span> PWMS12_MAX_DC<span class="hl sym">;</span>
+
+  <span class="hl slc">// For each PWM channel</span>
+	   <span class="hl kwa">for</span> <span class="hl sym">(</span> i<span class="hl sym">=</span><span class="hl num">0</span><span class="hl sym">;</span> i<span class="hl sym">&lt;</span> MAX_CHANNELS<span class="hl sym">;</span> i<span class="hl sym">++)</span>
+   <span class="hl sym">{</span>
+        <span class="hl slc">// Initialize the channel to 0% Duty Cycle</span>
+        <span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">)</span><span class="hl kwd">PWMDutyCycle</span><span class="hl sym">(</span>i<span class="hl sym">,</span> <span class="hl num">0</span><span class="hl sym">);</span>
+   <span class="hl sym">}</span>
+
+	<span class="hl slc">// If Ch0 is to be turned on</span>
+	<span class="hl kwa">if</span> <span class="hl sym">(</span>Ch0 <span class="hl sym">==</span> <span class="hl num">1</span><span class="hl sym">){</span>
+		<span class="hl slc">// Enable Map of PWM to PortT0</span>
+		MODRR <span class="hl sym">|=</span> _S12_MODRR0<span class="hl sym">;</span>
+		<span class="hl slc">// Enable PWM subsystem on Channel 0</span>
+		PWMCAE <span class="hl sym">|=</span> _S12_CAE0<span class="hl sym">;</span>
+		PWME <span class="hl sym">|=</span> _S12_PWME0<span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+	<span class="hl slc">// If Ch0 is to be turned off</span>
+	<span class="hl kwa">else if</span> <span class="hl sym">(</span>Ch0 <span class="hl sym">==</span> <span class="hl num">0</span><span class="hl sym">){</span>
+		<span class="hl slc">// Disable Map of PWM to PortT0</span>
+		MODRR <span class="hl sym">&amp;= ~</span>_S12_MODRR0<span class="hl sym">;</span>
+		<span class="hl slc">// Disable PWM subsystem on Channel 0</span>
+		PWME <span class="hl sym">&amp;= ~</span>_S12_PWME0<span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+
+	<span class="hl slc">// If Ch1 is to be turned on</span>
+	<span class="hl kwa">if</span> <span class="hl sym">(</span>Ch1 <span class="hl sym">==</span> <span class="hl num">1</span><span class="hl sym">){</span>
+		MODRR <span class="hl sym">|=</span> _S12_MODRR1<span class="hl sym">;</span>
+		PWMCAE <span class="hl sym">|=</span> _S12_CAE1<span class="hl sym">;</span>
+		PWME <span class="hl sym">|=</span> _S12_PWME1<span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+	<span class="hl slc">// If Ch1 is to be turned off</span>
+	<span class="hl kwa">else if</span> <span class="hl sym">(</span>Ch1 <span class="hl sym">==</span> <span class="hl num">0</span><span class="hl sym">){</span>
+		MODRR <span class="hl sym">&amp;= ~</span>_S12_MODRR1<span class="hl sym">;</span>
+		PWME <span class="hl sym">&amp;= ~</span>_S12_PWME1<span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+
+	<span class="hl slc">// If Ch2 is to be turned on</span>
+	<span class="hl kwa">if</span> <span class="hl sym">(</span>Ch2 <span class="hl sym">==</span> <span class="hl num">1</span><span class="hl sym">){</span>
+		MODRR <span class="hl sym">|=</span> _S12_MODRR2<span class="hl sym">;</span>
+		PWMCAE <span class="hl sym">|=</span> _S12_CAE2<span class="hl sym">;</span>
+		PWME <span class="hl sym">|=</span> _S12_PWME2<span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+	<span class="hl slc">// If Ch2 is to be turned off</span>
+	<span class="hl kwa">else if</span> <span class="hl sym">(</span>Ch2 <span class="hl sym">==</span> <span class="hl num">0</span><span class="hl sym">){</span>
+		MODRR <span class="hl sym">&amp;= ~</span>_S12_MODRR2 <span class="hl sym">;</span>
+		PWME <span class="hl sym">&amp;= ~</span>_S12_PWME2<span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+
+	<span class="hl slc">// If Ch3 is to be turned on</span>
+	<span class="hl kwa">if</span> <span class="hl sym">(</span>Ch3 <span class="hl sym">==</span> <span class="hl num">1</span><span class="hl sym">){</span>
+		MODRR <span class="hl sym">|=</span> _S12_MODRR3<span class="hl sym">;</span>
+		PWMCAE <span class="hl sym">|=</span> _S12_CAE3<span class="hl sym">;</span>
+		PWME <span class="hl sym">|=</span> _S12_PWME3<span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+	<span class="hl slc">// If Ch3 is to be turned off</span>
+	<span class="hl kwa">else if</span> <span class="hl sym">(</span>Ch3 <span class="hl sym">==</span> <span class="hl num">0</span><span class="hl sym">){</span>
+		MODRR <span class="hl sym">&amp;= ~</span>_S12_MODRR3 <span class="hl sym">;</span>
+		PWME <span class="hl sym">&amp;= ~</span>_S12_PWME3<span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+
+	<span class="hl slc">// If Ch4 is to be turned on</span>
+	<span class="hl kwa">if</span> <span class="hl sym">(</span>Ch4 <span class="hl sym">==</span> <span class="hl num">1</span><span class="hl sym">){</span>
+		MODRR <span class="hl sym">|=</span> _S12_MODRR4<span class="hl sym">;</span>
+		PWMCAE <span class="hl sym">|=</span> _S12_CAE4<span class="hl sym">;</span>
+		PWME <span class="hl sym">|=</span> _S12_PWME4<span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+	<span class="hl slc">// If Ch4 is to be turned off</span>
+	<span class="hl kwa">else if</span> <span class="hl sym">(</span>Ch2 <span class="hl sym">==</span> <span class="hl num">0</span><span class="hl sym">){</span>
+		MODRR <span class="hl sym">&amp;= ~</span>_S12_MODRR4<span class="hl sym">;</span>
+		PWME <span class="hl sym">&amp;= ~</span>_S12_PWME4<span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+<span class="hl sym">}</span>
+
+<span class="hl dir">#ifdef PWM_TEST</span>
+<span class="hl kwb">void</span> <span class="hl kwd">main</span><span class="hl sym">(){</span>
+	<span class="hl kwd">PWMOnOff</span><span class="hl sym">(</span><span class="hl num">1</span><span class="hl sym">,</span><span class="hl num">1</span><span class="hl sym">,</span><span class="hl num">1</span><span class="hl sym">,</span><span class="hl num">1</span><span class="hl sym">,</span><span class="hl num">1</span><span class="hl sym">);</span>
+	<span class="hl kwd">PWMFrequency</span><span class="hl sym">(</span><span class="hl num">0</span><span class="hl sym">,</span><span class="hl num">50</span><span class="hl sym">);</span>
+	<span class="hl kwd">PWMFrequency</span><span class="hl sym">(</span><span class="hl num">1</span><span class="hl sym">,</span><span class="hl num">5000</span><span class="hl sym">);</span>
+	<span class="hl kwd">PWMDutyCycle</span><span class="hl sym">(</span><span class="hl num">10</span><span class="hl sym">,</span><span class="hl num">0</span><span class="hl sym">);</span>
+	<span class="hl kwd">PWMDutyCycle</span><span class="hl sym">(</span><span class="hl num">25</span><span class="hl sym">,</span><span class="hl num">1</span><span class="hl sym">);</span>
+	<span class="hl kwd">PWMDutyCycle</span><span class="hl sym">(</span><span class="hl num">50</span><span class="hl sym">,</span><span class="hl num">2</span><span class="hl sym">);</span>
+	<span class="hl kwd">PWMDutyCycle</span><span class="hl sym">(</span><span class="hl num">75</span><span class="hl sym">,</span><span class="hl num">3</span><span class="hl sym">);</span>
+	<span class="hl kwd">PWMDutyCycle</span><span class="hl sym">(</span><span class="hl num">95</span><span class="hl sym">,</span><span class="hl num">4</span><span class="hl sym">);</span>
+
+	<span class="hl kwa">while</span><span class="hl sym">(</span><span class="hl num">1</span><span class="hl sym">);</span>
+<span class="hl sym">}</span>
+<span class="hl dir">#endif</span> <span class="hl slc">// PWM_TEST</span><span class="hl dir"></span>
+</pre>
+</body>
+</html>
+<!--HTML generated by highlight 2.13, http://www.andre-simon.de/-->

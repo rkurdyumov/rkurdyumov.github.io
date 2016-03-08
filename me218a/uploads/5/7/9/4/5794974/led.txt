@@ -1,0 +1,173 @@
+LED module
+
+DataHI: takes no arguments, returns nothing
+	Set data port pin HI
+
+DataLO: takes no arguments, returns nothing
+	Set data port pin LO
+
+ShiftClockHI: takes no arguments, returns nothing
+	Set shift clock port pin HI
+
+ShiftClockLO: takes no arguments, returns nothing
+	Set shift clock port pin LO
+
+StorageClockHI: takes no arguments, returns nothing
+	Set storage clock port pin HI
+
+StorageClockLO: takes no arguments, returns nothing
+	Set storage clock port pin LO
+
+InitializeLED: takes no arguments, returns nothing
+	Initialize shift and storage clock lines HI
+	Initialize all LEDs off
+	Set the current and previous LED data array to 1
+	Set the current state to WAITING_HI
+	Initialize counter to 0
+	start Waiting_HI timer
+
+CheckLEDEvents: takes no arguments, returns nothing
+	local variables: next state
+	next state = current state
+	switch current state:
+		case WAITING_HI:
+			if Waiting_HI timer expired
+				if current LED data for (last LED - (counter + 1)) if ON
+					DataHI
+				else
+					DataLO
+				clear expired timer for next pass
+				Pulse shift clock (set LO)
+				next state = WAITING_LO
+				start Waiting_LO timer
+			else
+				do nothing (wait for timer expiration)
+			break	
+		case WAITING_LO:
+			if WAITING_LO timer expired
+				clear expired timer for next pass
+				increment counter
+				if counter < number of LEDs (we haven't finished inputting LED states)
+					Reset shift clock line HI
+					next state = WAITING_HI
+					start Waiting HI timer
+				if counter >= number of LEDs
+					Pulse storage clock line (set LO)
+					next state = WAITING_STORE
+					Start Waiting_STORE timer
+	
+			else
+				do nothing (wait for timer expiration)
+			break
+		case WAITING_STORE
+			if WAITING_STORE timer expired
+				clear expired timer
+				update the current LED data array
+				reset counter to 0
+				Reset shift and storage clock lines HI
+				next state = WAITING_HI
+				start WAITING_HI timer
+			else
+				do nothing (wait for timer expiration)
+			break
+	current state = next state				
+
+UpdatePattern: takes current region standings, returns nothing
+	for region from 0 to 3
+		switch 1st place in region:
+			case RED:
+				all four RED data values for region are ON
+				break
+			case GREEN:
+				all four GREEN data values for region are ON
+				break
+			case BLUE:
+				all four BLUE data values for region are ON
+				break
+			case NONE:
+				break
+		switch 2nd place in region:
+			case RED:
+				1st and 3rd RED data values for region are ON
+				break
+			case GREEN:
+				1st and 3rd GREEN data values for region are ON
+				break
+			case BLUE:
+				1st and 3rd BLUE data values for region are ON
+				break
+			case NONE:
+				break
+		switch 3rd place in region:
+			case RED:
+				1st and 2nd RED data values for region are ON
+				break
+			case GREEN:
+				1st and 2nd GREEN data values for region are ON
+				break
+			case BLUE:
+				1st and 2nd BLUE data values for region are ON
+				break
+			case NONE:
+				break
+		switch last place in region (deposited no money):
+			all four RED data values for region are OFF
+				break
+			case GREEN:
+				all four GREEN data values for region are OFF
+				break
+			case BLUE:
+				all four BLUE data values for region are OFF
+				break
+			case NONE:
+				break
+				
+UpdateWinnerPattern: takes winner color, returns nothing
+	switch winner color:
+		case RED:
+			flash R1, then R3, then R4, then R2
+			turn off the other 2 colors
+			break
+		case GREEN:
+			flash G1, then G3, then G4, then G2
+			turn off the other 2 colors
+			break
+		case BLUE:
+			flash R1, then R3, then R4, then R4
+			turn off the other 2 colors
+			break
+
+DisplayOnePlayerColor: takes player color, returns nothing
+	switch player color:
+		case RED:
+			all four RED data values for region are ON
+			all four GREEN data values for region are OFF
+			all four BLUE data values for region are OFF
+			break
+		case GREEN:
+			all four RED data values for region are OFF
+			all four GREEN data values for region are ON
+			all four BLUE data values for region are OFF
+			break
+		case BLUE:
+			all four RED data values for region are OFF
+			all four GREEN data values for region are OFF
+			all four BLUE data values for region are ON
+			break
+
+DisplayTwoPlayerColor: takes left player color and right player color, returns nothing
+	if left color != RED and right color != RED
+		all four RED data values for region are OFF
+		all four GREEN data values for region are ON
+		all four BLUE data values for region are ON
+	else if left color != GREEN and right color != GREEN
+		all four RED data values for region are ON
+		all four GREEN data values for region are OFF
+		all four BLUE data values for region are ON
+	else if left color != BLUE and right color != BLUE
+		all four RED data values for region are ON
+		all four GREEN data values for region are ON
+		all four BLUE data values for region are OFF
+
+TurnOffLEDs: takes no arguments, returns nothing
+	all 12 LED data values are OFF

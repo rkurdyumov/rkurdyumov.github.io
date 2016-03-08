@@ -1,0 +1,154 @@
+Security PIC Pseudocode
+
+Main:
+Init
+TimerPIC_Init
+Enable global interrupts
+Loop forever
+	Update
+
+/* Subroutines */
+
+Update:
+Assume nextState = currState
+Switch on the currState
+	case WAITING_IDLE
+		If we get a new RFID message
+			Clear RFID_Ready flag
+			Select RFID PIC as slave
+			Send a dummy byte to enable transfer
+			Increment counter
+			Set the nextState to WAITING_FOR_RFID
+	
+	case WAITING_FOR_RFID
+		Once we get a response from RFID PIC
+			If it's not our last byte (counter < RFID_MESSAGE_LENGTH)
+				Get byte from SSPBUF
+				Send a dummy byte to enable transfer
+				Increment counter
+			Else we got our last byte	
+				Get byte from SSPBUF
+				Reset counter
+				De-select RFID PIC as slave
+				If VerifyChecksum passes (returns 0, also converts ASCII->HEX)
+					MakeSecurityMessage
+					Wait for XMIT register to be empty
+					Send out the first byte to the security controller
+					Increment counter
+					Set the nextState to SENDING_TO_SECURITY_PIC
+				If we get a back checksum, nextState to WAITING_IDLE
+			Clear SSPIF so we can send the Main PIC message later
+	
+	case SENDING_TO_SECURITY_PIC
+		If XMIT register empty
+			If we have a byte left to send
+				Send byte
+				Increment counter
+			Else
+				Reset counter
+				Set the nextState to RECEIVING_FROM_SECURITY_PIC
+
+	case RECEIVING_FROM_SECURITY_PIC
+		If we got another byte from Security Controller
+			Get the byte from RCREG, clears RCIF
+			If not done receiving
+				Increment counter
+			Else we got the last byte
+				Clear counter
+				Select SS of Main PIC
+				MakeMainMessage
+				Load in first Main_Message byte to SSPBUF
+				Increment counter
+				Set the nextState to SENDING_TO_MAIN_PIC
+
+	case SENDING_TO_MAIN_PIC
+		If finished last transmission
+			Read SSPBUF garbage to clear BF
+			Manually clear SSPIF
+			If not done sending message
+				Load in next Main_Message byte to SSPBUF
+				Increment counter
+			Else
+				Reset counter
+				Deselect SS of Main PIC
+				Set the nextState to WAITING_IDLE
+Update the currState based on nextState
+
+ConvertASCIItoHEX:
+Upper nibble: if < 0x40, AND w/ 0x0F, otherwise subtract 0x37, then bit shift
+Lower nibble: same as above, without bit shift, add to upper to get full HEX
+Return HEX
+
+VerifyChecksum:
+Convert received ASCII characters to HEX
+Calculate the checksum:
+	XOR all the converted HEX values after the start of data ASCII charactr (0x02)
+Should return 0 if we had a valid checksum since our last operation was XOR w/ checksum
+
+MakeSecurityMessage:
+Fill in security first byte 0x04
+Fill in serial number bytes based on HEX RFID serial number
+Fill in security last byte 0x08
+
+MakeMainMessage:
+Fill in the first three bytes with the HEX RFID serial number
+Fill in the next three bytes with the security key
+
+/* Initializations */
+
+Init:
+InitPins
+InitFlags
+InitSPI
+InitSCI
+InitInterrupts
+
+InitPins:
+Turn off analog inputs
+Set SCK, SDO, TX, and the two SS lines to be outputs
+Don't select either slave yet (set SS lines high)
+
+InitFlags:
+Clear RFID_Ready
+
+InitSPI:
+Turn on timer 2
+Set the prescaler to 1 (19.53 kHz)
+No write collision detect
+No receive overflow indicator
+Enable serial port, SCK, SDO, SDI as serial pins
+Clock idles high
+SPI Master, clock = timer2 output/2 (about 10kHz)
+Data sampled in middle of output
+Data transmitted on falling edge of SCK
+Read only
+Turn off SPI interrupt
+Clear SSPBUF
+
+InitSCI:
+Enable transmit
+Turn off synchronous mode
+Disable 9-bit transmission
+Serial port enabled (configures RX/TX as serial port pins)
+Continuous receive
+Disable 9-bit receive
+Turn off address detection
+High data rate mode
+Set baud rate to 9600
+Clear high baud rate bits
+Clear flag in case RCREG was full
+Clear SSPIF before we can send over UART
+
+
+void InitInterrupts(void) {
+Capture on every rising edge
+Enable input capture
+Enable Peripheral and Global Interrupts
+}
+
+/* Interrupts */
+
+Security_ISR:
+If new RFID message ready (we get a rising edge)
+	Clear interrupt flag
+	Set RFID_Ready

@@ -1,0 +1,62 @@
+PWM Frequency: takes group 0 or 1 and frequency, returns nothing
+Multiply input frequency by 2
+Create a scaling factor number which will be the desired product of the prescaler and scaler
+While Scaling factor can be divided by 2
+	Divide the scaling factor by 2 and store it into the scaling factor
+	Count how many times the scaling factor can be divided by 2
+Set the Scaler Value to be the current value of the ScalingFactor
+If group 0
+	Set pre-scaler for clock A
+Else if group 1
+	Set pre-scaler for clock B
+If group 0
+	switch on the prescaling power and apply the correct bit values to set to the prescaler register
+		case 0: divide by 1
+		case 1: divide by 2
+		case 2: divide by 4
+		case 3: divide by 8
+		case 4: divide by 16
+		case 5: divide by 32
+		case 6: divide by 64
+		case 7: divide by 128
+Else if group 1
+	same as above
+If group 0
+	Use scaled clock A for group A
+	Set the ScalerValue for the Scaled Clock
+Else if group 1
+	Use scaled clock B for group B
+	Set the ScalerValue for the Scaled Clock
+
+PWMDutyCycle: takes channel 0-4 and dutyCycle, returns PWMS12_ERR or PWMS12_OK
+DutyCycle and Channel Number exceed the maximum, return error
+Otherwise, change the Duty Cycle in the DutyCycle register for the respective channel, return OK
+
+PWMPolarity: takes channel 0-4 and direction, returns nothing
+	switch on the direction
+		case 1 (active HI desired)
+			If channel 0, set channel 0 to active HI
+			If channel 1, set channel 1 to active HI
+			If channel 2, set channel 2 to active HI
+			If channel 3, set channel 3 to active HI
+			If channel 4, set channel 4 to active HI
+		case 0 (active LO desired)
+			If channel 0, set channel 0 to active LO
+			If channel 1, set channel 1 to active LO
+			If channel 2, set channel 2 to active LO
+			If channel 3, set channel 3 to active LO
+			If channel 4, set channel 4 to active LO
+		
+PWMOnOff: takes 1 (on) or 0 for each PWM channel 0-4
+Turn off PWM and don't map any ports to PWM
+Set Polarity for each PWM channel (output initially high)
+Set PWMPeriod to have 100 count resolution
+For each PWM channel
+	Initialize the channel to 0% Duty Cycle
+If Ch0 is to be turned on
+	Enable Map of PWM to PortT0
+	Enable PWM subsystem on Channel 0
+If Ch0 is to be turned off
+	Disable Map of PWM to PortT0
+	Disable PWM subsystem on Channel 0
+Repeat for channels 1-4

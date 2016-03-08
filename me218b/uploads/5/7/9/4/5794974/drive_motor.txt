@@ -1,0 +1,40 @@
+InitializeDriveMotors: takes no arguments, returns nothing
+Turn PWM on for U0 and U1
+Set the frequency to 800
+Stop the motors
+Set the direction pins E7 (right) and T7 (left) to outputs
+Initialize the tape sensor analog inputs A2 and A3
+
+MotorStop: takes LEFT or RIGHT wheel, returns nothing
+switch on the wheel
+	case LEFT: set duty cycle to 0
+	case RIGHT: set duty cycle to 0
+
+MotorReverse: takes LEFT or RIGHT wheel and speed, returns nothing
+switch on the wheel
+	case LEFT: set direction pin to LEFT_WHEEL_REVERSE, set duty cycle to speed
+	case RIGHT: set direction pin to RIGHT_WHEEL_REVERSE, set duty cycle to speed
+
+MotorForward: takes LEFT or RIGHT wheel and speed, returns nothing
+switch on the wheel
+	case LEFT: set direction pin to LEFT_WHEEL_FORWARD, set duty cycle to speed
+	case RIGHT: set direction pin to RIGHT_WHEEL_FORWARD, set duty cycle to speed
+
+RotateCW: takes no arguments, returns nothing
+Go forward with LEFT wheel, reverse with RIGHT wheel
+
+RotateCW: takes no arguments, returns nothing
+Go forward with RIGHT wheel, reverse with LEFT wheel
+
+StopDriveMotors: takes no arguments, returns nothing
+Stop both motors
+
+CheckTapeSensor: takes FRONT or MIDDLE tapeSensor, returns 1 if it is activated
+switch on tapeSensor
+	case FRONT 
+		If the reading from AD3 > TAPE_THRESHOLD, return 1
+		Else return 0
+	case MIDDLE:
+		If the reading from AD2 > TAPE_THRESHOLD, return 1
+		Else return 0
+	

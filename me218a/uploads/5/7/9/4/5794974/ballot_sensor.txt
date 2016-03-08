@@ -1,0 +1,9 @@
+Ballot sensor module
+
+CheckBallotState: takes no arguments, returns current ballot state
+	local variable: current ballot state
+	if bit high
+		current state is no event
+	else
+		current state is ballot sensed
+	return current state

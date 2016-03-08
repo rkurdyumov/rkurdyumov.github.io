@@ -1,0 +1,103 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<title>lift_motor.c</title>
+<link rel="stylesheet" type="text/css" href="highlight.css">
+</head>
+<body class="hl">
+<pre class="hl"><span class="hl com">/**************************************************************************</span>
+<span class="hl com"></span>
+<span class="hl com">Lift Motor Module</span>
+<span class="hl com"></span>
+<span class="hl com">PWM: U4</span>
+<span class="hl com">Dir: U5</span>
+<span class="hl com"></span>
+<span class="hl com">**************************************************************************/</span>
+
+<span class="hl com">/*---------------------------- Include Files ----------------------------*/</span>
+<span class="hl dir">#include &lt;stdio.h&gt;</span>
+<span class="hl dir">#include &lt;timers12.h&gt;</span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;PWM.h&quot;</span><span class="hl dir"></span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;ADS12.h&quot;</span><span class="hl dir"></span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;game.h&quot;</span><span class="hl dir"></span>
+
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;lift_motor.h&quot;</span><span class="hl dir"></span>
+
+
+<span class="hl com">/*--------------------------- Module Defines ----------------------------*/</span>
+<span class="hl slc">// Define Motor Direction Pin</span>
+<span class="hl dir">#define	LIFT_UP						PTU &amp;= BIT5LO</span>
+<span class="hl dir">#define	LIFT_DOWN					PTU |= BIT5HI</span>
+
+<span class="hl com">/*---------------------------- Module Types -----------------------------*/</span>
+<span class="hl com">/*-------------------------- Module Variables ---------------------------*/</span>
+<span class="hl kwb">unsigned char</span> liftMode<span class="hl sym">;</span>
+
+<span class="hl com">/*-------------------------- Module Functions ---------------------------*/</span>
+<span class="hl com">/*----------------------------- Module Code -----------------------------*/</span>
+
+<span class="hl slc">// InitializeLiftMotor: takes nothing, returns nothing</span>
+<span class="hl kwb">void</span> <span class="hl kwd">InitializeLiftMotor</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">) {</span>
+
+	<span class="hl kwd">PWMOnOff</span><span class="hl sym">(</span><span class="hl num">1</span><span class="hl sym">,</span><span class="hl num">1</span><span class="hl sym">,</span><span class="hl num">1</span><span class="hl sym">,</span><span class="hl num">1</span><span class="hl sym">,</span><span class="hl num">1</span><span class="hl sym">);</span>
+  	<span class="hl kwd">PWMFrequency</span><span class="hl sym">(</span><span class="hl num">0</span><span class="hl sym">,</span><span class="hl num">800</span><span class="hl sym">);</span> <span class="hl slc">// group 0</span>
+	<span class="hl kwd">LiftMotorStop</span><span class="hl sym">();</span>
+
+  	<span class="hl com">/* Clear IRQEN to make Port E1 available as an input*/</span>
+   INTCR <span class="hl sym">= ~</span>_S12_IRQEN<span class="hl sym">;</span>
+   DDRE <span class="hl sym">&amp;= (</span>BIT0LO <span class="hl sym">|</span> BIT1LO<span class="hl sym">);</span>
+   DDRU <span class="hl sym">|=</span> BIT5HI<span class="hl sym">;</span>
+
+   liftMode <span class="hl sym">=</span> LOWERING<span class="hl sym">;</span> <span class="hl slc">// assume we start with the cage down</span>
+<span class="hl sym">}</span>
+
+<span class="hl slc">// LiftMotorStop: takes no arguments, returns nothing</span>
+<span class="hl kwb">void</span> <span class="hl kwd">LiftMotorStop</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">){</span>
+
+	<span class="hl kwd">PWMDutyCycle</span><span class="hl sym">(</span>LIFT_MOTOR<span class="hl sym">,</span> <span class="hl num">0</span><span class="hl sym">);</span>
+<span class="hl sym">}</span>
+
+<span class="hl slc">// LiftMotorUp: takes no arguments, returns nothing</span>
+<span class="hl kwb">void</span> <span class="hl kwd">LiftMotorUp</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">){</span>
+
+	liftMode <span class="hl sym">=</span> LIFTING<span class="hl sym">;</span>
+	LIFT_UP<span class="hl sym">;</span>
+	<span class="hl kwd">PWMDutyCycle</span><span class="hl sym">(</span>LIFT_MOTOR<span class="hl sym">,</span> <span class="hl num">50</span><span class="hl sym">);</span>
+<span class="hl sym">}</span>
+
+<span class="hl slc">// LiftMotorDown: takes no arguments, returns nothing</span>
+<span class="hl kwb">void</span> <span class="hl kwd">LiftMotorDown</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">){</span>
+
+	liftMode <span class="hl sym">=</span> LOWERING<span class="hl sym">;</span>
+	LIFT_DOWN<span class="hl sym">;</span>
+	<span class="hl kwd">PWMDutyCycle</span><span class="hl sym">(</span>LIFT_MOTOR<span class="hl sym">,</span> <span class="hl num">25</span><span class="hl sym">);</span>
+<span class="hl sym">}</span>
+
+<span class="hl slc">// CheckLiftLimitSwitch: takes TOP or BOTTOM switch, returns 1 if pressed</span>
+<span class="hl kwb">unsigned char</span> <span class="hl kwd">CheckLiftLimitSwitch</span><span class="hl sym">(</span><span class="hl kwb">unsigned char</span> liftSwitch<span class="hl sym">) {</span>
+
+	<span class="hl kwa">switch</span><span class="hl sym">(</span>liftSwitch<span class="hl sym">) {</span>
+		<span class="hl kwa">case</span> TOP<span class="hl sym">:</span>
+			<span class="hl kwa">if</span> <span class="hl sym">((</span>PORTE <span class="hl sym">&amp;</span> BIT0HI<span class="hl sym">) ==</span> BIT0HI<span class="hl sym">)</span>
+				<span class="hl kwa">return</span> <span class="hl num">1</span><span class="hl sym">;</span>
+			<span class="hl kwa">else</span>
+				<span class="hl kwa">return</span> <span class="hl num">0</span><span class="hl sym">;</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+
+		<span class="hl kwa">case</span> BOTTOM<span class="hl sym">:</span>
+			<span class="hl kwa">if</span> <span class="hl sym">((</span>PORTE <span class="hl sym">&amp;</span> BIT1HI<span class="hl sym">) ==</span> BIT1HI<span class="hl sym">)</span>
+				<span class="hl kwa">return</span> <span class="hl num">1</span><span class="hl sym">;</span>
+			<span class="hl kwa">else</span>
+				<span class="hl kwa">return</span> <span class="hl num">0</span><span class="hl sym">;</span>
+		<span class="hl kwa">break</span><span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+<span class="hl sym">}</span>
+
+<span class="hl slc">// ReturnLiftMode: takes no arguments, returns LIFTING or LOWERING</span>
+<span class="hl kwb">unsigned char</span> <span class="hl kwd">ReturnLiftMode</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">) {</span>
+	<span class="hl kwa">return</span> liftMode<span class="hl sym">;</span>
+<span class="hl sym">}</span>
+</pre>
+</body>
+</html>
+<!--HTML generated by highlight 2.13, http://www.andre-simon.de/-->

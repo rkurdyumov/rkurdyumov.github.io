@@ -1,0 +1,14 @@
+InitSwitch: takes no arguments, returns nothing
+Initialize ports P1, P3, P4 as inputs
+
+ReturnColor: takes no arguments, returns team_t GREEN_TEAM or RED_TEAM
+If Port T4 is high return GREEN_TEAM
+Else return RED_TEAM
+
+ReturnOvertime: takes no arguments, returns 1 if overtime, 0 otherwise
+If Port T4 is high return 1
+Else return 0
+
+ReturnCourt: takes no arguments, returns 1 if full court, 0 otherwise
+If Port T4 is high return 1
+Else return 0

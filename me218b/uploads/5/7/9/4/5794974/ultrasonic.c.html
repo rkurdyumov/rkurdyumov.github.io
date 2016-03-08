@@ -1,0 +1,131 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<title>ultrasonic.c</title>
+<link rel="stylesheet" type="text/css" href="highlight.css">
+</head>
+<body class="hl">
+<pre class="hl"><span class="hl com">/**************************************************************************</span>
+<span class="hl com"></span>
+<span class="hl com">Ultrasonic distance module</span>
+<span class="hl com"></span>
+<span class="hl com">TIM1, Port T5, timer 5 (output compare, PWM signal out)</span>
+<span class="hl com">TIM0, Port T6, timer 6 (rising + falling edges)</span>
+<span class="hl com"></span>
+<span class="hl com"></span>
+<span class="hl com"></span>
+<span class="hl com">**************************************************************************/</span>
+
+<span class="hl com">/*---------------------------- Include Files ----------------------------*/</span>
+<span class="hl dir">#include &lt;stdio.h&gt;</span>
+<span class="hl dir">#include &lt;hidef.h&gt;</span>      <span class="hl com">/* common defines and macros */</span><span class="hl dir"></span>
+<span class="hl dir">#include &lt;mc9s12e128.h&gt;</span> <span class="hl com">/* derivative information */</span><span class="hl dir"></span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;ME218_E128.h&quot;</span><span class="hl dir"></span>	<span class="hl com">/* bit definitions */</span><span class="hl dir"></span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;S12eVec.h&quot;</span><span class="hl dir"></span>		<span class="hl com">/* interrupts */</span><span class="hl dir"></span>
+<span class="hl dir">#include &lt;timers12.h&gt;</span>
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;game.h&quot;</span><span class="hl dir"></span>
+
+<span class="hl dir">#include</span> <span class="hl dstr">&quot;ultrasonic.h&quot;</span><span class="hl dir"></span>
+
+<span class="hl com">/*--------------------------- Module Defines ----------------------------*/</span>
+<span class="hl dir">#define _4US_ *3</span>
+<span class="hl dir">#define _1MS_ *750</span>
+
+<span class="hl dir">#define OC_HIGH (2 _4US_)</span>
+<span class="hl dir">#define OC_LOW (25 _1MS_)</span>
+<span class="hl dir">#define OC_WAIT (100 _4US_)</span>
+<span class="hl dir">#define PWM_SIGNAL (20 _4US_)</span>
+
+<span class="hl com">/*---------------------------- Module Types -----------------------------*/</span>
+<span class="hl com">/*-------------------------- Module Variables ---------------------------*/</span>
+<span class="hl kwb">static unsigned int</span> lastRisingEdge<span class="hl sym">;</span>
+<span class="hl kwb">static unsigned int</span> pulseWidth<span class="hl sym">;</span>
+<span class="hl kwb">unsigned char</span> bit6state<span class="hl sym">;</span>
+
+<span class="hl com">/*-------------------------- Module Functions ---------------------------*/</span>
+<span class="hl com">/*----------------------------- Module Code -----------------------------*/</span>
+
+<span class="hl kwb">void</span> <span class="hl kwd">InitializeUltrasonic</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">) {</span>
+
+	<span class="hl slc">// Initialize initial periods</span>
+	lastRisingEdge <span class="hl sym">=</span> pulseWidth <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+
+	DDRT <span class="hl sym">|= (</span>BIT5HI <span class="hl sym">|</span> BIT4HI<span class="hl sym">);</span>
+	DDRT <span class="hl sym">&amp;=</span> BIT6LO<span class="hl sym">;</span>
+	PTT <span class="hl sym">&amp;=</span> BIT5LO<span class="hl sym">;</span>
+	PTT <span class="hl sym">|=</span> BIT4HI<span class="hl sym">;</span>
+
+	TIM1_TSCR1 <span class="hl sym">=</span> _S12_TEN<span class="hl sym">;</span> <span class="hl slc">// Turn the Timer system on</span>
+	TIM1_TSCR2 <span class="hl sym">= (</span>_S12_PR0 <span class="hl sym">|</span> _S12_PR2<span class="hl sym">);</span> <span class="hl slc">// Prescale: 32, so 24 MHz / 8 = 750 kHz</span>
+
+	<span class="hl slc">// Left beacon</span>
+	<span class="hl slc">// Input capture</span>
+	TIM1_TIOS <span class="hl sym">&amp;= ~(</span>_S12_IOS6<span class="hl sym">);</span> <span class="hl slc">// Input Capture</span>
+	TIM1_TCTL3 <span class="hl sym">|= (</span>_S12_EDG6A <span class="hl sym">|</span> _S12_EDG6B<span class="hl sym">);</span> <span class="hl slc">// Capture rising/falling edges</span>
+	TIM1_TFLG1 <span class="hl sym">=</span> _S12_C6F<span class="hl sym">;</span> <span class="hl slc">// Clear flag</span>
+	TIM1_TIE <span class="hl sym">|=</span> _S12_C6I<span class="hl sym">;</span> <span class="hl slc">// Enable input capture</span>
+
+	<span class="hl slc">// Output compare</span>
+	TIM1_TIOS <span class="hl sym">=</span> _S12_IOS5<span class="hl sym">;</span> <span class="hl slc">// Output compare</span>
+	TIM1_TCTL1 <span class="hl sym">=</span> TIM1_TCTL1 <span class="hl sym">&amp; ~(</span>_S12_OL5 <span class="hl sym">|</span> _S12_OM5<span class="hl sym">);</span> <span class="hl slc">// Set No Pin Connected to OC Interrupt</span>
+	TIM1_TFLG1 <span class="hl sym">=</span> _S12_C5F<span class="hl sym">;</span> <span class="hl slc">// Clear Flag</span>
+	TIM1_TIE <span class="hl sym">|=</span> _S12_C5I<span class="hl sym">;</span> <span class="hl slc">// Enable interrupt</span>
+	TIM1_TC5 <span class="hl sym">=</span> TIM1_TCNT <span class="hl sym">+</span> OC_HIGH<span class="hl sym">;</span> <span class="hl slc">// next rising edge</span>
+
+	EnableInterrupts<span class="hl sym">;</span> <span class="hl slc">//Globally Enable Interrupts</span>
+<span class="hl sym">}</span>
+
+<span class="hl kwb">unsigned int</span> <span class="hl kwd">ReturnUltrasonicDistance</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">) {</span>
+
+	<span class="hl kwb">unsigned int</span> period<span class="hl sym">,</span> distance<span class="hl sym">;</span>
+	period <span class="hl sym">= ((</span><span class="hl num">3</span><span class="hl sym">*</span>pulseWidth<span class="hl sym">)/</span><span class="hl num">4</span><span class="hl sym">)/</span><span class="hl num">2</span><span class="hl sym">;</span> <span class="hl slc">// microseconds</span>
+	distance <span class="hl sym">=</span> period <span class="hl sym">/</span> <span class="hl num">17</span><span class="hl sym">;</span>
+	<span class="hl kwa">return</span> distance<span class="hl sym">;</span>
+<span class="hl sym">}</span>
+
+<span class="hl slc">// OutputPulse: OutputPulse, takes nothing, returns nothing</span>
+<span class="hl kwb">void</span> interrupt _Vec_tim1ch5 <span class="hl kwd">OutputPulse</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">){</span>
+
+	<span class="hl kwb">static unsigned char</span> controlFlag <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span>
+
+	<span class="hl kwa">if</span>	<span class="hl sym">((</span>PTT <span class="hl sym">&amp;</span> BIT5HI<span class="hl sym">) ==</span> BIT5HI <span class="hl sym">&amp;&amp;</span> controlFlag <span class="hl sym">==</span> <span class="hl num">0</span><span class="hl sym">) {</span> <span class="hl slc">// currently high</span>
+		PTT <span class="hl sym">&amp;=</span> BIT5LO<span class="hl sym">;</span> <span class="hl slc">// falling edge</span>
+		TIM1_TC5 <span class="hl sym">=</span> TIM1_TCNT <span class="hl sym">+</span> OC_WAIT<span class="hl sym">;</span> <span class="hl slc">// wait to relinquish control of line</span>
+		controlFlag <span class="hl sym">=</span> <span class="hl num">1</span><span class="hl sym">;</span> <span class="hl slc">// holding control</span>
+	<span class="hl sym">}</span>
+	<span class="hl kwa">else if</span><span class="hl sym">(</span>controlFlag <span class="hl sym">==</span> <span class="hl num">1</span><span class="hl sym">) {</span> <span class="hl slc">// currently low, relinquish control</span>
+		TIM1_TC5 <span class="hl sym">=</span> TIM1_TCNT <span class="hl sym">+</span> OC_LOW<span class="hl sym">;</span> <span class="hl slc">// next rising edge</span>
+		DDRT <span class="hl sym">&amp;=</span> BIT5LO<span class="hl sym">;</span> <span class="hl slc">// Switch to input mode, wait for response</span>
+		controlFlag <span class="hl sym">=</span> <span class="hl num">0</span><span class="hl sym">;</span> <span class="hl slc">// release control</span>
+	<span class="hl sym">}</span>
+	<span class="hl kwa">else</span> <span class="hl sym">{</span> <span class="hl slc">// currently low</span>
+		DDRT <span class="hl sym">|=</span> BIT5HI<span class="hl sym">;</span> <span class="hl slc">// Get control back</span>
+		PTT <span class="hl sym">|=</span> BIT5HI<span class="hl sym">;</span> <span class="hl slc">// rising edge</span>
+		TIM1_TC5 <span class="hl sym">=</span> TIM1_TCNT <span class="hl sym">+</span> OC_HIGH<span class="hl sym">;</span> <span class="hl slc">// wait for falling edge</span>
+	<span class="hl sym">}</span>
+	<span class="hl slc">// Clear flag</span>
+	TIM1_TFLG1 <span class="hl sym">=</span> _S12_C5F<span class="hl sym">;</span>
+<span class="hl sym">}</span>
+
+<span class="hl slc">// InputPulse: Input Capture, takes nothing, returns nothing</span>
+<span class="hl kwb">void</span> interrupt _Vec_tim1ch6 <span class="hl kwd">InputPulse</span><span class="hl sym">(</span><span class="hl kwb">void</span><span class="hl sym">){</span>
+
+	<span class="hl kwb">unsigned int</span> width<span class="hl sym">;</span>
+
+	<span class="hl kwa">if</span><span class="hl sym">((</span>PTT <span class="hl sym">&amp;</span> BIT6HI<span class="hl sym">) ==</span> BIT6HI<span class="hl sym">) {</span> <span class="hl slc">// currently high</span>
+		lastRisingEdge <span class="hl sym">=</span> TIM1_TCNT<span class="hl sym">;</span>
+		PTT <span class="hl sym">|=</span> BIT4HI<span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+	<span class="hl kwa">else</span>	<span class="hl sym">{</span> <span class="hl slc">// currently low</span>
+		width <span class="hl sym">=</span> TIM1_TCNT <span class="hl sym">-</span> lastRisingEdge<span class="hl sym">;</span>
+		<span class="hl kwa">if</span> <span class="hl sym">(</span>width <span class="hl sym">&gt;</span> PWM_SIGNAL<span class="hl sym">)</span> <span class="hl slc">// ignore our PWM pulses</span>
+			pulseWidth <span class="hl sym">=</span> TIM1_TCNT <span class="hl sym">-</span> lastRisingEdge<span class="hl sym">;</span>
+		PTT <span class="hl sym">&amp;=</span> BIT4LO<span class="hl sym">;</span>
+	<span class="hl sym">}</span>
+	<span class="hl slc">// Clear flag</span>
+	TIM1_TFLG1 <span class="hl sym">=</span> _S12_C6F<span class="hl sym">;</span>
+<span class="hl sym">}</span>
+</pre>
+</body>
+</html>
+<!--HTML generated by highlight 2.13, http://www.andre-simon.de/-->

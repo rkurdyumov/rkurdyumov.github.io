@@ -1,0 +1,55 @@
+Card sensor module
+
+InitializeCardSensor: takes no arguments, returns nothing
+	Initialize the last left state, last right state, last left time, last right time
+
+SetLEDCalibration: takes which side and card we are reading, returns nothing
+	switch: input
+		1:
+			left, no card is our current analog count
+		2: 
+			left, green card is our current analog count
+		3: 
+			left, blue card is our current analog count
+		4: 
+			left, red card is our current analog count
+		5: 
+			right, no card is our current analog count
+		6: 
+			right, green card is our current analog count
+		7: 
+			right, blue card is our current analog count
+		8: 
+			right, red card is our current analog count
+
+
+AnalogToLeftCardState: takes analog count, returns left card state
+	local variable: current card state
+	if analog count is no card interval, current card state is no card
+	else if analog count is red card interval, current card state is red card
+	else if analog count is green card interval, current card state is green card
+	else if analog count is blue card interval, current card state is blue card
+	return current card state
+
+AnalogToRightCardState: takes analog count, returns right card state
+	local variable: current card state
+	if analog count is no card interval, current card state is no card
+	else if analog count is red card interval, current card state is red card
+	else if analog count is green card interval, current card state is green card
+	else if analog count is blue card interval, current card state is blue card
+	return current card state
+	
+CheckLeftCardState: takes no arguments, returns current left card state	
+	if left card state has changed
+		if card insert interval has expired
+			update current left card state
+	return current left card state
+	
+CheckRightCardState: takes no arguments, returns current right card state	
+	if right card state has changed
+		if card insert interval has expired
+			update current right card state
+	return current right card state
+	
+
+	

@@ -1,0 +1,571 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<title>main_rev2.c</title>
+</head>
+<body style="background-color:#eeeeee">
+<pre style="color:#000000; background-color:#eeeeee; font-size:8pt; font-family:'Courier New';"><span style="color:#f27900">//#define Checkoff_1</span>
+<span style="color:#0080c0; font-weight:bold">#define TestReceiveE128</span>
+<span style="color:#f27900">//#define BoatDrive</span>
+
+<span style="color:#f27900">// PS2=RECIEVE PS3=TRANSMIT</span>
+
+<span style="color:#ff8000">/***************************************************/</span>
+
+<span style="color:#f27900">// Import Library</span>
+<span style="color:#0080c0; font-weight:bold">#include &lt;hidef.h&gt;</span>      <span style="color:#ff8000">/* common defines and macros */</span><span style="color:#0080c0; font-weight:bold"></span>
+<span style="color:#0080c0; font-weight:bold">#include &lt;mc9s12e128.h&gt;</span> <span style="color:#ff8000">/* derivative information */</span><span style="color:#0080c0; font-weight:bold"></span>
+<span style="color:#0080c0; font-weight:bold">#include</span> <span style="color:#0000ff">&quot;ME218_E128.h&quot;</span><span style="color:#0080c0; font-weight:bold"></span>	<span style="color:#ff8000">/* bit definitions */</span><span style="color:#0080c0; font-weight:bold"></span>
+<span style="color:#0080c0; font-weight:bold">#include</span> <span style="color:#0000ff">&quot;S12eVec.h&quot;</span><span style="color:#0080c0; font-weight:bold"></span>		<span style="color:#ff8000">/* interrupts */</span><span style="color:#0080c0; font-weight:bold"></span>
+<span style="color:#0080c0; font-weight:bold">#include &lt;timers12.h&gt;</span>
+<span style="color:#0080c0; font-weight:bold">#include &lt;stdio.h&gt;</span>
+<span style="color:#0080c0; font-weight:bold">#include</span> <span style="color:#0000ff">&quot;Communication.h&quot;</span><span style="color:#0080c0; font-weight:bold"></span>
+<span style="color:#0080c0; font-weight:bold">#include</span> <span style="color:#0000ff">&quot;SCIMessage_H.h&quot;</span><span style="color:#0080c0; font-weight:bold"></span>
+<span style="color:#0080c0; font-weight:bold">#include</span> <span style="color:#0000ff">&quot;SensorInputs.h&quot;</span><span style="color:#0080c0; font-weight:bold"></span>
+<span style="color:#0080c0; font-weight:bold">#include</span> <span style="color:#0000ff">&quot;BoostServo.h&quot;</span><span style="color:#0080c0; font-weight:bold"></span>
+<span style="color:#0080c0; font-weight:bold">#include &lt;math.h&gt;</span>
+
+<span style="color:#ff8000">/*****************Module Defines**********************/</span>
+
+<span style="color:#f27900">// Define Numerical Constants</span>
+<span style="color:#0080c0; font-weight:bold">#define   TRUE                1</span>
+<span style="color:#0080c0; font-weight:bold">#define   FALSE               0</span>
+<span style="color:#0080c0; font-weight:bold">#define   BOOST               10</span>
+
+<span style="color:#f27900">// Timers</span>
+<span style="color:#0080c0; font-weight:bold">#define   SEND_TIME           0</span>
+<span style="color:#0080c0; font-weight:bold">#define   SEND_TIME_PERIOD    200</span>    <span style="color:#f27900">// Send messages every 5Hz</span>
+<span style="color:#0080c0; font-weight:bold"></span><span style="color:#0080c0; font-weight:bold">#define   REC_TIMEOUT         1</span>
+<span style="color:#0080c0; font-weight:bold">#define   REC_TIMEOUT_PERIOD  500</span>    <span style="color:#f27900">// Set time out for receiving messages to 0.5sec</span>
+<span style="color:#0080c0; font-weight:bold"></span>
+<span style="color:#ff8000">/******************Module Types*********************/</span>
+
+<span style="color:#ff8000">/*******************MODULE VARIABLES********************/</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> NewMessageFlag<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> checkSumError<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> byteCounter<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static</span> TMRS12Return_t TimeOutFlag<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> messageArray<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">15</span><span style="color:#ff0080; font-weight:bold">];</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> Packet<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">17</span><span style="color:#ff0080; font-weight:bold">];</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> DataLength <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> k <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#f27900">//static Button_t Button;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> readLength<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> messageReceived <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static signed char</span> DriveSpeed <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> DriveHandle <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">90</span><span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> Direction <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> DriveForward <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> DriveBackward <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> DriveRight <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> DriveLeft <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#ff8000">/****************PRIVATE FUNCTION PROTOTYPES***************/</span>
+
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">InitSCI</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">);</span>
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">InitIC</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">);</span>
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">CheckSendTimer</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">);</span>
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">CreatePacket</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">unsigned char</span> Data_Length<span style="color:#ff0080; font-weight:bold">,</span> <span style="color:#8080c0; font-weight:bold">unsigned char</span> MessageAddressMSB<span style="color:#ff0080; font-weight:bold">,</span> <span style="color:#8080c0; font-weight:bold">unsigned char</span> MessageAddressLSB<span style="color:#ff0080; font-weight:bold">,</span> <span style="color:#8080c0; font-weight:bold">unsigned char</span> Options<span style="color:#ff0080; font-weight:bold">,</span> <span style="color:#8080c0; font-weight:bold">unsigned char</span> CommandType<span style="color:#ff0080; font-weight:bold">,</span> <span style="color:#8080c0; font-weight:bold">unsigned char</span> DataToSend<span style="color:#ff0080; font-weight:bold">[]);</span>
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">TransmitSM</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">);</span>
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">ReceiveMessageSM</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">);</span>
+
+<span style="color:#ff8000">/*******************INTERRUPT RESPONSES***********************/</span>
+<span style="color:#ff8000">/*************************FUNCTIONS***************************/</span>
+
+
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">InitSCI</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">){</span>
+  <span style="color:#f27900">// Set up SCI communication</span>
+  <span style="color:#f27900">// Set Baud Rate 9600Hz = 24MHz / (16*156)</span>
+  SCI1BDH <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0x00</span><span style="color:#ff0080; font-weight:bold">;</span> <span style="color:#f27900">// 0</span>
+  SCI1BDL <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0x9C</span><span style="color:#ff0080; font-weight:bold">;</span> <span style="color:#f27900">// 156</span>
+
+  <span style="color:#f27900">// Select Word Length and Wake Up</span>
+  SCI1CR1 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span>b00000000<span style="color:#ff0080; font-weight:bold">;</span>
+  <span style="color:#f27900">// No Interrupts, Transmit/Receive Enabled</span>
+  SCI1CR2 <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span>b00001100<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#f27900">// This function check to see if new data can be sent at 5Hz</span>
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">CheckSendTimer</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">){</span>
+
+  <span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#004466">TMRS12_IsTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span>SEND_TIME<span style="color:#ff0080; font-weight:bold">) ==</span> TMRS12_EXPIRED<span style="color:#ff0080; font-weight:bold">){</span>
+
+        <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_ClearTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span>SEND_TIME<span style="color:#ff0080; font-weight:bold">);</span>    <span style="color:#f27900">//Clear timer flag</span>
+        <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span>SEND_TIME<span style="color:#ff0080; font-weight:bold">,</span>SEND_TIME_PERIOD<span style="color:#ff0080; font-weight:bold">);</span>  <span style="color:#f27900">//Reset 5Hz timer</span>
+        NewMessageFlag <span style="color:#ff0080; font-weight:bold">=</span> TRUE<span style="color:#ff0080; font-weight:bold">;</span>
+    <span style="color:#ff0080; font-weight:bold">}</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+
+<span style="color:#f27900">// This function puts together a packet to send</span>
+<span style="color:#f27900">// Input Bytes: To Address MSB/LSB, Length, Options, Command Type, and Data Array</span>
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">CreatePacket</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">unsigned char</span> Data_Length<span style="color:#ff0080; font-weight:bold">,</span> <span style="color:#8080c0; font-weight:bold">unsigned char</span> MessageAddressMSB<span style="color:#ff0080; font-weight:bold">,</span> <span style="color:#8080c0; font-weight:bold">unsigned char</span> MessageAddressLSB<span style="color:#ff0080; font-weight:bold">,</span> <span style="color:#8080c0; font-weight:bold">unsigned char</span> Options<span style="color:#ff0080; font-weight:bold">,</span> <span style="color:#8080c0; font-weight:bold">unsigned char</span> CommandType<span style="color:#ff0080; font-weight:bold">,</span> <span style="color:#8080c0; font-weight:bold">unsigned char</span> DataToSend<span style="color:#ff0080; font-weight:bold">[]){</span>
+
+    <span style="color:#8080c0; font-weight:bold">unsigned char</span> i<span style="color:#ff0080; font-weight:bold">,</span>Checksum<span style="color:#ff0080; font-weight:bold">;</span>
+
+
+    Packet<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">] =</span> START_MESSAGE<span style="color:#ff0080; font-weight:bold">;</span>
+    Packet<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">] =</span> <span style="color:#800080; font-weight:bold">0x00</span><span style="color:#ff0080; font-weight:bold">;</span>                    <span style="color:#f27900">// Length High Byte</span>
+    Packet<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">] =</span> Data_Length <span style="color:#ff0080; font-weight:bold">+</span> <span style="color:#800080; font-weight:bold">6</span><span style="color:#ff0080; font-weight:bold">;</span>          <span style="color:#f27900">// FRAME LENGTH (Length Low Byte)</span>
+    Packet<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">3</span><span style="color:#ff0080; font-weight:bold">] =</span> API_TRANSMIT<span style="color:#ff0080; font-weight:bold">;</span>
+    Packet<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">4</span><span style="color:#ff0080; font-weight:bold">] =</span> <span style="color:#800080; font-weight:bold">0x01</span><span style="color:#ff0080; font-weight:bold">;</span>                    <span style="color:#f27900">// Frame ID</span>
+    Packet<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">5</span><span style="color:#ff0080; font-weight:bold">] =</span> MessageAddressMSB<span style="color:#ff0080; font-weight:bold">;</span>
+    Packet<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">6</span><span style="color:#ff0080; font-weight:bold">] =</span> MessageAddressLSB<span style="color:#ff0080; font-weight:bold">;</span>
+    Packet<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">7</span><span style="color:#ff0080; font-weight:bold">] =</span> Options<span style="color:#ff0080; font-weight:bold">;</span>
+    Packet<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">8</span><span style="color:#ff0080; font-weight:bold">] =</span> CommandType<span style="color:#ff0080; font-weight:bold">;</span>
+
+    Checksum <span style="color:#ff0080; font-weight:bold">=</span> API_TRANSMIT <span style="color:#ff0080; font-weight:bold">+</span> <span style="color:#800080; font-weight:bold">0x01</span> <span style="color:#ff0080; font-weight:bold">+</span> MessageAddressMSB <span style="color:#ff0080; font-weight:bold">+</span> MessageAddressLSB <span style="color:#ff0080; font-weight:bold">+</span> Options <span style="color:#ff0080; font-weight:bold">+</span> CommandType<span style="color:#ff0080; font-weight:bold">;</span>
+
+    DataLength <span style="color:#ff0080; font-weight:bold">=</span> Data_Length<span style="color:#ff0080; font-weight:bold">;</span>
+    <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">printf</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#a68500">&quot;DatatoSend[0]: %d</span> <span style="color:#ff00ff; font-weight:bold">\r\n</span><span style="color:#a68500">&quot;</span><span style="color:#ff0080; font-weight:bold">,</span> DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">]);</span>
+    <span style="color:#bb7977; font-weight:bold">for</span><span style="color:#ff0080; font-weight:bold">(</span>i<span style="color:#ff0080; font-weight:bold">=</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>i<span style="color:#ff0080; font-weight:bold">&lt;</span>DataLength<span style="color:#ff0080; font-weight:bold">;</span>i<span style="color:#ff0080; font-weight:bold">++){</span>
+
+        Packet<span style="color:#ff0080; font-weight:bold">[</span>i<span style="color:#ff0080; font-weight:bold">+</span><span style="color:#800080; font-weight:bold">9</span><span style="color:#ff0080; font-weight:bold">] =</span> DataToSend<span style="color:#ff0080; font-weight:bold">[</span>i<span style="color:#ff0080; font-weight:bold">];</span>
+        Checksum <span style="color:#ff0080; font-weight:bold">+=</span> DataToSend<span style="color:#ff0080; font-weight:bold">[</span>i<span style="color:#ff0080; font-weight:bold">];</span>
+    <span style="color:#ff0080; font-weight:bold">}</span>
+    Packet<span style="color:#ff0080; font-weight:bold">[</span>DataLength<span style="color:#ff0080; font-weight:bold">+</span><span style="color:#800080; font-weight:bold">9</span><span style="color:#ff0080; font-weight:bold">] =</span> <span style="color:#800080; font-weight:bold">0xFF</span> <span style="color:#ff0080; font-weight:bold">-</span> Checksum<span style="color:#ff0080; font-weight:bold">;</span>
+    NewMessageFlag <span style="color:#ff0080; font-weight:bold">=</span> TRUE<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#f27900">// This function will send a message when one is ready</span>
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">TransmitSM</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">){</span>
+
+    <span style="color:#8080c0; font-weight:bold">static</span> TransmitState_t CurrentState <span style="color:#ff0080; font-weight:bold">=</span> WAITING_FOR_PACKET<span style="color:#ff0080; font-weight:bold">;</span>
+    <span style="color:#8080c0; font-weight:bold">static unsigned char</span> Counter <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+    <span style="color:#bb7977; font-weight:bold">switch</span><span style="color:#ff0080; font-weight:bold">(</span>CurrentState<span style="color:#ff0080; font-weight:bold">){</span>
+
+        <span style="color:#bb7977; font-weight:bold">case</span> WAITING_FOR_PACKET<span style="color:#ff0080; font-weight:bold">:</span>
+
+            <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>NewMessageFlag <span style="color:#ff0080; font-weight:bold">==</span> TRUE<span style="color:#ff0080; font-weight:bold">){</span>
+
+                NewMessageFlag <span style="color:#ff0080; font-weight:bold">=</span> FALSE<span style="color:#ff0080; font-weight:bold">;</span>   <span style="color:#f27900">//Clear flag</span>
+                Counter <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+                CurrentState <span style="color:#ff0080; font-weight:bold">=</span> WAITING_FOR_TRANSMIT<span style="color:#ff0080; font-weight:bold">;</span>
+            <span style="color:#ff0080; font-weight:bold">}</span>
+
+        <span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+        <span style="color:#bb7977; font-weight:bold">case</span> WAITING_FOR_TRANSMIT<span style="color:#ff0080; font-weight:bold">:</span>
+
+            <span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>Counter <span style="color:#ff0080; font-weight:bold">&lt; (</span>DataLength<span style="color:#ff0080; font-weight:bold">+</span><span style="color:#800080; font-weight:bold">10</span><span style="color:#ff0080; font-weight:bold">)){</span>
+                <span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">((</span>SCI1SR1 <span style="color:#ff0080; font-weight:bold">&amp;</span> _S12_TDRE<span style="color:#ff0080; font-weight:bold">) ==</span> _S12_TDRE<span style="color:#ff0080; font-weight:bold">){</span>
+
+          	        <span style="color:#f27900">// Send next byte</span>
+          	        SCI1DRL <span style="color:#ff0080; font-weight:bold">=</span> Packet<span style="color:#ff0080; font-weight:bold">[</span>Counter<span style="color:#ff0080; font-weight:bold">];</span>
+          	        Counter<span style="color:#ff0080; font-weight:bold">++;</span>
+                <span style="color:#ff0080; font-weight:bold">}</span>
+            <span style="color:#ff0080; font-weight:bold">}</span>
+            <span style="color:#bb7977; font-weight:bold">else</span>
+                CurrentState <span style="color:#ff0080; font-weight:bold">=</span> WAITING_FOR_PACKET<span style="color:#ff0080; font-weight:bold">;</span>
+
+        <span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+    <span style="color:#ff0080; font-weight:bold">}</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">ReceiveMessageSM</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">) {</span>
+	<span style="color:#8080c0; font-weight:bold">static</span> ReceiveMessageState currentState <span style="color:#ff0080; font-weight:bold">=</span> WAITING_FOR_START_BYTE<span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#8080c0; font-weight:bold">static unsigned char</span> checkSum<span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#8080c0; font-weight:bold">static unsigned char</span> messageLength<span style="color:#ff0080; font-weight:bold">;</span>
+
+	ReceiveMessageState nextState<span style="color:#ff0080; font-weight:bold">;</span>
+	nextState <span style="color:#ff0080; font-weight:bold">=</span> currentState<span style="color:#ff0080; font-weight:bold">;</span>
+
+	<span style="color:#bb7977; font-weight:bold">switch</span><span style="color:#ff0080; font-weight:bold">(</span>currentState<span style="color:#ff0080; font-weight:bold">) {</span>
+
+		<span style="color:#bb7977; font-weight:bold">case</span> WAITING_FOR_START_BYTE<span style="color:#ff0080; font-weight:bold">:</span>
+			<span style="color:#f27900">// If Byte Read is 7E</span>
+			<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">((</span>SCI1DRL <span style="color:#ff0080; font-weight:bold">==</span> <span style="color:#800080; font-weight:bold">0x7E</span><span style="color:#ff0080; font-weight:bold">) &amp;&amp; (</span>SCI1SR1 <span style="color:#ff0080; font-weight:bold">!=</span> FALSE<span style="color:#ff0080; font-weight:bold">)){</span>
+				<span style="color:#f27900">// Message Received, Wait for the MSB</span>
+				nextState <span style="color:#ff0080; font-weight:bold">=</span> WAITING_FOR_MSB<span style="color:#ff0080; font-weight:bold">;</span>
+				<span style="color:#f27900">//(void) printf(&quot;REC: 0x %X\r\n&quot;,SCI1DRL);</span>
+				<span style="color:#f27900">// Start Timeout Timer</span>
+                <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span>REC_TIMEOUT<span style="color:#ff0080; font-weight:bold">,</span>REC_TIMEOUT_PERIOD<span style="color:#ff0080; font-weight:bold">);</span>    <span style="color:#f27900">// Start a timer to expire if the next byte is not recieved in 0.5sec</span>
+			<span style="color:#ff0080; font-weight:bold">}</span>
+			<span style="color:#f27900">// Otherwise do nothing, and keep waiting for start byte</span>
+		<span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+		<span style="color:#bb7977; font-weight:bold">case</span> WAITING_FOR_MSB<span style="color:#ff0080; font-weight:bold">:</span>
+			TimeOutFlag <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#004466">TMRS12_IsTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span>REC_TIMEOUT<span style="color:#ff0080; font-weight:bold">);</span>
+			<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>TimeOutFlag <span style="color:#ff0080; font-weight:bold">==</span> TMRS12_EXPIRED<span style="color:#ff0080; font-weight:bold">){</span>
+				<span style="color:#f27900">// Timeout Timer has Timed Out</span>
+				<span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_ClearTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span>REC_TIMEOUT<span style="color:#ff0080; font-weight:bold">);</span>    <span style="color:#f27900">//Clear timer flag</span>
+				nextState <span style="color:#ff0080; font-weight:bold">=</span> WAITING_FOR_START_BYTE<span style="color:#ff0080; font-weight:bold">;</span>
+			<span style="color:#ff0080; font-weight:bold">}</span>
+			<span style="color:#bb7977; font-weight:bold">else if</span><span style="color:#ff0080; font-weight:bold">(</span>SCI1SR1_RDRF <span style="color:#ff0080; font-weight:bold">!=</span> FALSE<span style="color:#ff0080; font-weight:bold">){</span> <span style="color:#f27900">// If we received a byte</span>
+				<span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>SCI1DRL <span style="color:#ff0080; font-weight:bold">==</span> <span style="color:#800080; font-weight:bold">0x00</span><span style="color:#ff0080; font-weight:bold">){</span> <span style="color:#f27900">// We received a 0</span>
+    				<span style="color:#f27900">// Start Timeout Timer</span>
+                    <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span>REC_TIMEOUT<span style="color:#ff0080; font-weight:bold">,</span>REC_TIMEOUT_PERIOD<span style="color:#ff0080; font-weight:bold">);</span>    <span style="color:#f27900">// Start a timer to expire if the next byte is not recieved in 0.5sec</span>
+    				<span style="color:#f27900">// Wait for the LSB</span>
+    				nextState <span style="color:#ff0080; font-weight:bold">=</span> WAITING_FOR_LSB<span style="color:#ff0080; font-weight:bold">;</span>
+				    <span style="color:#f27900">//(void) printf(&quot;REC: 0x %X\r\n&quot;,SCI1DRL);</span>
+				<span style="color:#ff0080; font-weight:bold">}</span> <span style="color:#bb7977; font-weight:bold">else</span><span style="color:#ff0080; font-weight:bold">{</span>
+				    nextState <span style="color:#ff0080; font-weight:bold">=</span> WAITING_FOR_START_BYTE<span style="color:#ff0080; font-weight:bold">;</span>
+				<span style="color:#ff0080; font-weight:bold">}</span>
+			<span style="color:#ff0080; font-weight:bold">}</span>
+		<span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+		<span style="color:#bb7977; font-weight:bold">case</span> WAITING_FOR_LSB<span style="color:#ff0080; font-weight:bold">:</span>
+			TimeOutFlag <span style="color:#ff0080; font-weight:bold">=</span>  <span style="color:#004466">TMRS12_IsTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span>REC_TIMEOUT<span style="color:#ff0080; font-weight:bold">);</span>
+			<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>TimeOutFlag <span style="color:#ff0080; font-weight:bold">==</span> TMRS12_EXPIRED<span style="color:#ff0080; font-weight:bold">){</span>
+				<span style="color:#f27900">// Timeout Timer has Timed Out</span>
+		        <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_ClearTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span>REC_TIMEOUT<span style="color:#ff0080; font-weight:bold">);</span>    <span style="color:#f27900">//Clear timer flag</span>
+				nextState <span style="color:#ff0080; font-weight:bold">=</span> WAITING_FOR_START_BYTE<span style="color:#ff0080; font-weight:bold">;</span>
+			<span style="color:#ff0080; font-weight:bold">}</span>
+			<span style="color:#bb7977; font-weight:bold">else if</span> <span style="color:#ff0080; font-weight:bold">(</span>SCI1SR1_RDRF <span style="color:#ff0080; font-weight:bold">!=</span> FALSE<span style="color:#ff0080; font-weight:bold">){</span> <span style="color:#f27900">// If we received a byte</span>
+				nextState <span style="color:#ff0080; font-weight:bold">=</span> WAITING_FOR_DATA<span style="color:#ff0080; font-weight:bold">;</span>
+				<span style="color:#f27900">// Restart Timeout Timer</span>
+                <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span>REC_TIMEOUT<span style="color:#ff0080; font-weight:bold">,</span>REC_TIMEOUT_PERIOD<span style="color:#ff0080; font-weight:bold">);</span>    <span style="color:#f27900">// Start a timer to expire if the next byte is not recieved in 0.5sec</span>
+				<span style="color:#f27900">// Initialize the CheckSum and Save the Size of Message</span>
+				checkSum <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+				messageLength <span style="color:#ff0080; font-weight:bold">=</span> SCI1DRL<span style="color:#ff0080; font-weight:bold">;</span>
+				readLength <span style="color:#ff0080; font-weight:bold">=</span> messageLength<span style="color:#ff0080; font-weight:bold">;</span> <span style="color:#f27900">// For debug</span>
+				<span style="color:#f27900">//(void) printf(&quot;REC: 0x %X\r\n&quot;,SCI1DRL);</span>
+				byteCounter <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+			<span style="color:#ff0080; font-weight:bold">}</span>
+		<span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+		<span style="color:#bb7977; font-weight:bold">case</span> WAITING_FOR_DATA<span style="color:#ff0080; font-weight:bold">:</span>
+			TimeOutFlag <span style="color:#ff0080; font-weight:bold">=</span>  <span style="color:#004466">TMRS12_IsTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span>REC_TIMEOUT<span style="color:#ff0080; font-weight:bold">);</span>
+			<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>TimeOutFlag <span style="color:#ff0080; font-weight:bold">==</span> TMRS12_EXPIRED<span style="color:#ff0080; font-weight:bold">){</span>
+				<span style="color:#f27900">// Timeout Timer has Timed Out</span>
+				<span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_ClearTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span>REC_TIMEOUT<span style="color:#ff0080; font-weight:bold">);</span>    <span style="color:#f27900">//Clear timer flag</span>
+				nextState <span style="color:#ff0080; font-weight:bold">=</span> WAITING_FOR_START_BYTE<span style="color:#ff0080; font-weight:bold">;</span>
+			<span style="color:#ff0080; font-weight:bold">}</span>
+			<span style="color:#bb7977; font-weight:bold">else if</span><span style="color:#ff0080; font-weight:bold">(</span>SCI1SR1_RDRF <span style="color:#ff0080; font-weight:bold">!=</span> FALSE<span style="color:#ff0080; font-weight:bold">){</span>
+				<span style="color:#f27900">// Restart Timeout Timer</span>
+                <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span>REC_TIMEOUT<span style="color:#ff0080; font-weight:bold">,</span>REC_TIMEOUT_PERIOD<span style="color:#ff0080; font-weight:bold">);</span>    <span style="color:#f27900">// Start a timer to expire if the next byte is not recieved in 0.5sec</span>
+				<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>messageLength <span style="color:#ff0080; font-weight:bold">==</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">)</span>
+					nextState <span style="color:#ff0080; font-weight:bold">=</span> WAITING_FOR_CHECKSUM<span style="color:#ff0080; font-weight:bold">;</span>
+				<span style="color:#bb7977; font-weight:bold">else</span><span style="color:#ff0080; font-weight:bold">{</span>
+					nextState <span style="color:#ff0080; font-weight:bold">=</span> WAITING_FOR_DATA<span style="color:#ff0080; font-weight:bold">;</span>
+					messageLength<span style="color:#ff0080; font-weight:bold">--;</span>
+					checkSum <span style="color:#ff0080; font-weight:bold">+=</span> SCI1DRL<span style="color:#ff0080; font-weight:bold">;</span>
+					messageArray<span style="color:#ff0080; font-weight:bold">[</span>byteCounter<span style="color:#ff0080; font-weight:bold">] =</span> SCI1DRL<span style="color:#ff0080; font-weight:bold">;</span>
+				    <span style="color:#f27900">//(void) printf(&quot;REC: 0x %X\r\n&quot;,SCI1DRL);</span>
+				    <span style="color:#f27900">//(void) printf(&quot;Message Length %d\r\n&quot;,messageLength);</span>
+					byteCounter<span style="color:#ff0080; font-weight:bold">++;</span>
+				<span style="color:#ff0080; font-weight:bold">}</span>
+			<span style="color:#ff0080; font-weight:bold">}</span>
+		<span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+		<span style="color:#bb7977; font-weight:bold">case</span> WAITING_FOR_CHECKSUM<span style="color:#ff0080; font-weight:bold">:</span>
+			TimeOutFlag <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#004466">TMRS12_IsTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span>REC_TIMEOUT<span style="color:#ff0080; font-weight:bold">);</span>
+			<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>TimeOutFlag  <span style="color:#ff0080; font-weight:bold">==</span> TMRS12_EXPIRED<span style="color:#ff0080; font-weight:bold">){</span>
+				<span style="color:#f27900">// Timeout Timer has Timed Out</span>
+				<span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_ClearTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span>REC_TIMEOUT<span style="color:#ff0080; font-weight:bold">);</span>    <span style="color:#f27900">//Clear timer flag</span>
+				nextState <span style="color:#ff0080; font-weight:bold">=</span> WAITING_FOR_START_BYTE<span style="color:#ff0080; font-weight:bold">;</span>
+			<span style="color:#ff0080; font-weight:bold">}</span>
+			<span style="color:#bb7977; font-weight:bold">else if</span> <span style="color:#ff0080; font-weight:bold">(</span>SCI1SR1_RDRF <span style="color:#ff0080; font-weight:bold">!=</span> FALSE<span style="color:#ff0080; font-weight:bold">)</span>
+				nextState <span style="color:#ff0080; font-weight:bold">=</span> WAITING_FOR_START_BYTE<span style="color:#ff0080; font-weight:bold">;</span>
+				<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>SCI1DRL <span style="color:#ff0080; font-weight:bold">== (</span><span style="color:#800080; font-weight:bold">0xFF</span> <span style="color:#ff0080; font-weight:bold">-</span> checkSum<span style="color:#ff0080; font-weight:bold">)){</span>
+				    <span style="color:#f27900">// Good CheckSum Received</span>
+					checkSumError <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+				<span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">printf</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#a68500">&quot;New Message</span><span style="color:#ff00ff; font-weight:bold">\r\n</span><span style="color:#a68500">&quot;</span><span style="color:#ff0080; font-weight:bold">);</span>
+				messageReceived <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+				<span style="color:#ff0080; font-weight:bold">}</span>
+				<span style="color:#bb7977; font-weight:bold">else</span>
+					<span style="color:#f27900">// Bad CheckSum</span>
+					checkSumError <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+		<span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+	<span style="color:#ff0080; font-weight:bold">}</span>
+
+	currentState <span style="color:#ff0080; font-weight:bold">=</span> nextState<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+
+
+<span style="color:#0080c0; font-weight:bold">#ifdef TestReceiveE128</span>
+
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">main</span> <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">){</span>
+    <span style="color:#8080c0; font-weight:bold">int</span> j<span style="color:#ff0080; font-weight:bold">;</span>
+    <span style="color:#8080c0; font-weight:bold">unsigned char</span> DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">7</span><span style="color:#ff0080; font-weight:bold">];</span>
+    <span style="color:#8080c0; font-weight:bold">unsigned char</span> SendingFlag <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+    <span style="color:#8080c0; font-weight:bold">char</span> checksum <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+    <span style="color:#8080c0; font-weight:bold">char</span> press<span style="color:#ff0080; font-weight:bold">;</span>
+
+    <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">printf</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#a68500">&quot;Test Receive Function&quot;</span><span style="color:#ff0080; font-weight:bold">);</span>
+    <span style="color:#f27900">// Initialize:</span>
+    <span style="color:#004466">InitSCI</span><span style="color:#ff0080; font-weight:bold">();</span>                        <span style="color:#f27900">// Initialize Communications</span>
+    <span style="color:#004466">InitIC</span><span style="color:#ff0080; font-weight:bold">();</span>                         <span style="color:#f27900">// Initialize Input Capture for Boost Button</span>
+    <span style="color:#004466">InitPins</span><span style="color:#ff0080; font-weight:bold">();</span>
+    <span style="color:#004466">TMRS12_Init</span><span style="color:#ff0080; font-weight:bold">(</span>TMRS12_RATE_1MS<span style="color:#ff0080; font-weight:bold">);</span>     <span style="color:#f27900">// Initialize 1ms timer</span>
+    <span style="color:#004466">AtollLEDOff</span><span style="color:#ff0080; font-weight:bold">();</span>
+    <span style="color:#004466">InitBoostServo</span><span style="color:#ff0080; font-weight:bold">();</span>
+    <span style="color:#004466">InitDebug</span><span style="color:#ff0080; font-weight:bold">();</span>
+
+    byteCounter <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+    TimeOutFlag <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+    DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">] =</span> <span style="color:#800080; font-weight:bold">0x01</span><span style="color:#ff0080; font-weight:bold">;</span>
+    DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">] =</span> <span style="color:#800080; font-weight:bold">0x02</span><span style="color:#ff0080; font-weight:bold">;</span>
+    DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">] =</span> <span style="color:#800080; font-weight:bold">0x03</span><span style="color:#ff0080; font-weight:bold">;</span>
+    <span style="color:#f27900">//DataToSend[3] = 0x04;</span>
+    <span style="color:#f27900">//DataToSend[4] = 0x04;</span>
+    <span style="color:#f27900">//DataToSend[5] = 0x05;</span>
+    <span style="color:#f27900">//DataToSend[6] = 0x06;</span>
+
+
+
+
+    <span style="color:#ff8000">/*</span>
+<span style="color:#ff8000">    CreatePacket(ACV_ADDRESS_MSB,ACV_ADDRESS_LSB,DIRECT_MESSAGE,COMMAND_ACV,DataToSend);</span>
+<span style="color:#ff8000">    // include start + length MSB/LSB + data frame+checksum</span>
+<span style="color:#ff8000">    for(i=0 ; i&lt;DataLength+10 ; i++){</span>
+<span style="color:#ff8000">        (void) printf(&quot;TX: 0x %X\r\n&quot;,Packet[i]);</span>
+<span style="color:#ff8000">    }</span>
+<span style="color:#ff8000">    // NewMessageFlag = TRUE;</span>
+<span style="color:#ff8000"></span>
+<span style="color:#ff8000">    // 7E, 00, 9, 01, 01, 20, 8E, 02, CD, 01, 02, 03, 7A</span>
+<span style="color:#ff8000">    */</span>
+
+    <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">7</span><span style="color:#ff0080; font-weight:bold">,</span><span style="color:#800080; font-weight:bold">200</span><span style="color:#ff0080; font-weight:bold">);</span>
+
+    <span style="color:#bb7977; font-weight:bold">while</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">){</span>
+    	<span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TransmitSM</span><span style="color:#ff0080; font-weight:bold">();</span>
+    	<span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">ReceiveMessageSM</span><span style="color:#ff0080; font-weight:bold">();</span>
+    	<span style="color:#004466">CheckSensorTimeout</span><span style="color:#ff0080; font-weight:bold">();</span>
+    	<span style="color:#004466">CheckBoostRecharge</span><span style="color:#ff0080; font-weight:bold">();</span>
+    	<span style="color:#004466">UpdateDebug</span><span style="color:#ff0080; font-weight:bold">();</span>
+
+
+    	<span style="color:#f27900">// If message received</span>
+    	<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>messageReceived <span style="color:#ff0080; font-weight:bold">==</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">){</span>
+    	  messageReceived <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+    	  <span style="color:#f27900">// Check if it was a message from another XBEE</span>
+    	      <span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>messageArray<span style="color:#ff0080; font-weight:bold">[</span>API<span style="color:#ff0080; font-weight:bold">] ==</span> API_RECEIVE<span style="color:#ff0080; font-weight:bold">){</span>
+      	  <span style="color:#f27900">// Check if it was a broadcast message</span>
+      	        <span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>messageArray<span style="color:#ff0080; font-weight:bold">[</span>RECEIVE_OPTION<span style="color:#ff0080; font-weight:bold">] ==</span> BROADCAST_MESSAGE<span style="color:#ff0080; font-weight:bold">){</span>
+      	        <span style="color:#f27900">// Check if it was an atoll capture</span>
+      	            <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>messageArray<span style="color:#ff0080; font-weight:bold">[</span>COMMAND_TYPE<span style="color:#ff0080; font-weight:bold">] ==</span> BROADCAST_CAPTURE<span style="color:#ff0080; font-weight:bold">){</span>
+      	                <span style="color:#f27900">// Light the Appripriate LEDs</span>
+      	                <span style="color:#004466">AtollLED</span><span style="color:#ff0080; font-weight:bold">(</span>messageArray<span style="color:#ff0080; font-weight:bold">[</span>ATOLL_NUMBER<span style="color:#ff0080; font-weight:bold">],</span> messageArray<span style="color:#ff0080; font-weight:bold">[</span>TEAM_COLOR<span style="color:#ff0080; font-weight:bold">]);</span>
+      	            <span style="color:#ff0080; font-weight:bold">}</span>
+      	        <span style="color:#ff0080; font-weight:bold">}</span>
+      	        <span style="color:#bb7977; font-weight:bold">else if</span><span style="color:#ff0080; font-weight:bold">(</span>messageArray<span style="color:#ff0080; font-weight:bold">[</span>ADDRESS_MSB<span style="color:#ff0080; font-weight:bold">] ==</span> ACV_ADDRESS_MSB <span style="color:#ff0080; font-weight:bold">&amp;&amp;</span> messageArray<span style="color:#ff0080; font-weight:bold">[</span>ADDRESS_LSB<span style="color:#ff0080; font-weight:bold">] ==</span> ACV_ADDRESS_LSB<span style="color:#ff0080; font-weight:bold">){</span>
+      	            <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span><span style="color:#004466">printf</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#a68500">&quot;Directed Message to ACV /r/n&quot;</span><span style="color:#ff0080; font-weight:bold">);</span>
+      	            <span style="color:#f27900">// Check if it was an atoll capture</span>
+      	            <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>messageArray<span style="color:#ff0080; font-weight:bold">[</span>COMMAND_TYPE<span style="color:#ff0080; font-weight:bold">] ==</span> COMMAND_B2C <span style="color:#ff0080; font-weight:bold">&amp;&amp;</span> messageArray<span style="color:#ff0080; font-weight:bold">[</span>ATOLL_NUMBER<span style="color:#ff0080; font-weight:bold">] ==</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">){</span>
+      	                <span style="color:#f27900">// Turn off all LEDs</span>
+      	                <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">printf</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#a68500">&quot;Boat To Controller Command /r/n&quot;</span><span style="color:#ff0080; font-weight:bold">);</span>
+      	                <span style="color:#004466">AtollLEDOff</span><span style="color:#ff0080; font-weight:bold">();</span>
+      	            <span style="color:#ff0080; font-weight:bold">}</span>
+      	        <span style="color:#ff0080; font-weight:bold">}</span>
+    	      <span style="color:#ff0080; font-weight:bold">}</span>
+    	<span style="color:#ff0080; font-weight:bold">}</span>
+
+      <span style="color:#f27900">// if( TMRS12_IsTimerExpired(7) == TMRS12_EXPIRED &amp;&amp; SendingFlag == 1 ) {</span>
+      <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span> <span style="color:#004466">TMRS12_IsTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">7</span><span style="color:#ff0080; font-weight:bold">) ==</span> TMRS12_EXPIRED<span style="color:#ff0080; font-weight:bold">) {</span>
+      	    <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_ClearTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">7</span><span style="color:#ff0080; font-weight:bold">);</span>
+      	    DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">] =</span> <span style="color:#004466">ReadWheelSpeed</span><span style="color:#ff0080; font-weight:bold">();</span>
+      	    DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">] =</span> <span style="color:#004466">ReadWheelDirection</span><span style="color:#ff0080; font-weight:bold">();</span>
+      	    <span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#004466">ReadHandlebar</span><span style="color:#ff0080; font-weight:bold">() &gt;</span> <span style="color:#800080; font-weight:bold">60</span><span style="color:#ff0080; font-weight:bold">)</span>
+      	      DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">] =</span> <span style="color:#004466">ReadHandlebar</span><span style="color:#ff0080; font-weight:bold">();</span>
+      	    <span style="color:#bb7977; font-weight:bold">else</span>
+      	      DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">] =</span> <span style="color:#800080; font-weight:bold">60</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+      	    <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">printf</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#a68500">&quot;Speed: %d Direction: %d Heading: %d  Old: %d AD: %d</span> <span style="color:#ff00ff; font-weight:bold">\r\n</span><span style="color:#a68500">&quot;</span><span style="color:#ff0080; font-weight:bold">,</span> DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">],</span> DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">],</span> DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">],</span> <span style="color:#004466">ReadHandlebarOld</span><span style="color:#ff0080; font-weight:bold">(),</span> <span style="color:#004466">ADS12_ReadADPin</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">) );</span>
+      	    <span style="color:#004466">CreatePacket</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">3</span><span style="color:#ff0080; font-weight:bold">,</span> ACV_ADDRESS_MSB<span style="color:#ff0080; font-weight:bold">,</span>ACV_ADDRESS_LSB<span style="color:#ff0080; font-weight:bold">,</span>DIRECT_MESSAGE<span style="color:#ff0080; font-weight:bold">,</span>COMMAND_C2B<span style="color:#ff0080; font-weight:bold">,</span>DataToSend<span style="color:#ff0080; font-weight:bold">);</span>
+      	    <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">7</span><span style="color:#ff0080; font-weight:bold">,</span><span style="color:#800080; font-weight:bold">200</span><span style="color:#ff0080; font-weight:bold">);</span>
+      	    <span style="color:#f27900">//printf(&quot;200ms timer expired \r\n&quot;);</span>
+      	<span style="color:#ff0080; font-weight:bold">}</span>
+
+
+      	 <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#004466">kbhit</span><span style="color:#ff0080; font-weight:bold">() ==</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">) {</span>
+			    press <span style="color:#ff0080; font-weight:bold">= (</span><span style="color:#8080c0; font-weight:bold">char</span><span style="color:#ff0080; font-weight:bold">)</span><span style="color:#004466">getchar</span><span style="color:#ff0080; font-weight:bold">();</span>
+			    <span style="color:#bb7977; font-weight:bold">switch</span><span style="color:#ff0080; font-weight:bold">(</span>press<span style="color:#ff0080; font-weight:bold">) {</span>
+				    <span style="color:#bb7977; font-weight:bold">case</span> <span style="color:#a68500">'r'</span><span style="color:#ff0080; font-weight:bold">:</span>
+
+				        <span style="color:#bb7977; font-weight:bold">for</span><span style="color:#ff0080; font-weight:bold">(</span>j<span style="color:#ff0080; font-weight:bold">=</span><span style="color:#800080; font-weight:bold">0</span> <span style="color:#ff0080; font-weight:bold">;</span> j<span style="color:#ff0080; font-weight:bold">&lt;</span>readLength<span style="color:#ff0080; font-weight:bold">;</span> j<span style="color:#ff0080; font-weight:bold">++){</span>
+                            <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">printf</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#a68500">&quot;REC: 0x %X</span><span style="color:#ff00ff; font-weight:bold">\r\n</span><span style="color:#a68500">&quot;</span><span style="color:#ff0080; font-weight:bold">,</span>messageArray<span style="color:#ff0080; font-weight:bold">[</span>j<span style="color:#ff0080; font-weight:bold">]);</span>
+				        <span style="color:#ff0080; font-weight:bold">}</span>
+			    	<span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+			        <span style="color:#bb7977; font-weight:bold">case</span> <span style="color:#a68500">'s'</span><span style="color:#ff0080; font-weight:bold">:</span>
+			            <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span><span style="color:#004466">printf</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#a68500">&quot;Toggling send flag</span> <span style="color:#ff00ff; font-weight:bold">\r\n</span><span style="color:#a68500">&quot;</span><span style="color:#ff0080; font-weight:bold">);</span>
+			            <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>SendingFlag <span style="color:#ff0080; font-weight:bold">==</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">)</span>
+			                 SendingFlag <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+			            <span style="color:#bb7977; font-weight:bold">else</span>
+			                SendingFlag <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+			        <span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+			    <span style="color:#ff0080; font-weight:bold">}</span>
+      	 <span style="color:#ff0080; font-weight:bold">}</span>
+
+
+    <span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#ff0080; font-weight:bold">}</span>   <span style="color:#f27900">//Main Bracket</span>
+
+
+<span style="color:#0080c0; font-weight:bold">#endif</span>
+
+
+<span style="color:#0080c0; font-weight:bold">#ifdef BoatDrive</span>
+
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">main</span> <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">){</span>
+    <span style="color:#8080c0; font-weight:bold">int</span> j<span style="color:#ff0080; font-weight:bold">;</span>
+    <span style="color:#8080c0; font-weight:bold">unsigned char</span> DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">7</span><span style="color:#ff0080; font-weight:bold">];</span>
+    <span style="color:#8080c0; font-weight:bold">unsigned char</span> SendingFlag <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+    <span style="color:#8080c0; font-weight:bold">char</span> checksum <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+    <span style="color:#8080c0; font-weight:bold">char</span> press<span style="color:#ff0080; font-weight:bold">;</span>
+
+    <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">printf</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#a68500">&quot;Test Receive Function&quot;</span><span style="color:#ff0080; font-weight:bold">);</span>
+    <span style="color:#f27900">// Initialize:</span>
+    <span style="color:#004466">InitSCI</span><span style="color:#ff0080; font-weight:bold">();</span>                        <span style="color:#f27900">// Initialize Communications</span>
+    <span style="color:#004466">InitIC</span><span style="color:#ff0080; font-weight:bold">();</span>                         <span style="color:#f27900">// Initialize Input Capture for Boost Button</span>
+    <span style="color:#004466">InitPins</span><span style="color:#ff0080; font-weight:bold">();</span>
+    <span style="color:#004466">TMRS12_Init</span><span style="color:#ff0080; font-weight:bold">(</span>TMRS12_RATE_1MS<span style="color:#ff0080; font-weight:bold">);</span>     <span style="color:#f27900">// Initialize 1ms timer</span>
+    <span style="color:#004466">AtollLEDOff</span><span style="color:#ff0080; font-weight:bold">();</span>
+
+    byteCounter <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+    TimeOutFlag <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+    DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">] =</span> <span style="color:#800080; font-weight:bold">0x01</span><span style="color:#ff0080; font-weight:bold">;</span>
+    DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">] =</span> <span style="color:#800080; font-weight:bold">0x02</span><span style="color:#ff0080; font-weight:bold">;</span>
+    DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">] =</span> <span style="color:#800080; font-weight:bold">0x03</span><span style="color:#ff0080; font-weight:bold">;</span>
+    <span style="color:#f27900">//DataToSend[3] = 0x04;</span>
+    <span style="color:#f27900">//DataToSend[4] = 0x04;</span>
+    <span style="color:#f27900">//DataToSend[5] = 0x05;</span>
+    <span style="color:#f27900">//DataToSend[6] = 0x06;</span>
+
+
+
+
+    <span style="color:#ff8000">/*</span>
+<span style="color:#ff8000">    CreatePacket(ACV_ADDRESS_MSB,ACV_ADDRESS_LSB,DIRECT_MESSAGE,COMMAND_ACV,DataToSend);</span>
+<span style="color:#ff8000">    // include start + length MSB/LSB + data frame+checksum</span>
+<span style="color:#ff8000">    for(i=0 ; i&lt;DataLength+10 ; i++){</span>
+<span style="color:#ff8000">        (void) printf(&quot;TX: 0x %X\r\n&quot;,Packet[i]);</span>
+<span style="color:#ff8000">    }</span>
+<span style="color:#ff8000">    // NewMessageFlag = TRUE;</span>
+<span style="color:#ff8000"></span>
+<span style="color:#ff8000">    // 7E, 00, 9, 01, 01, 20, 8E, 02, CD, 01, 02, 03, 7A</span>
+<span style="color:#ff8000">    */</span>
+
+    <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">7</span><span style="color:#ff0080; font-weight:bold">,</span><span style="color:#800080; font-weight:bold">200</span><span style="color:#ff0080; font-weight:bold">);</span>
+    <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">6</span><span style="color:#ff0080; font-weight:bold">,</span><span style="color:#800080; font-weight:bold">25</span><span style="color:#ff0080; font-weight:bold">);</span>
+
+    <span style="color:#bb7977; font-weight:bold">while</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">){</span>
+    	<span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TransmitSM</span><span style="color:#ff0080; font-weight:bold">();</span>
+    	<span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">ReceiveMessageSM</span><span style="color:#ff0080; font-weight:bold">();</span>
+    	<span style="color:#004466">CheckSensorTimeout</span><span style="color:#ff0080; font-weight:bold">();</span>
+
+    	<span style="color:#f27900">// If message received</span>
+    	<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>messageReceived <span style="color:#ff0080; font-weight:bold">==</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">){</span>
+    	  messageReceived <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+    	  <span style="color:#f27900">// Check if it was a message from another XBEE</span>
+    	      <span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>messageArray<span style="color:#ff0080; font-weight:bold">[</span>API<span style="color:#ff0080; font-weight:bold">] ==</span> API_RECEIVE<span style="color:#ff0080; font-weight:bold">){</span>
+      	  <span style="color:#f27900">// Check if it was a broadcast message</span>
+      	        <span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>messageArray<span style="color:#ff0080; font-weight:bold">[</span>RECEIVE_OPTION<span style="color:#ff0080; font-weight:bold">] ==</span> BROADCAST_MESSAGE<span style="color:#ff0080; font-weight:bold">){</span>
+      	        <span style="color:#f27900">// Check if it was an atoll capture</span>
+      	            <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>messageArray<span style="color:#ff0080; font-weight:bold">[</span>COMMAND_TYPE<span style="color:#ff0080; font-weight:bold">] ==</span> BROADCAST_CAPTURE<span style="color:#ff0080; font-weight:bold">){</span>
+      	                <span style="color:#f27900">// Light the Appripriate LEDs</span>
+      	                <span style="color:#004466">AtollLED</span><span style="color:#ff0080; font-weight:bold">(</span>messageArray<span style="color:#ff0080; font-weight:bold">[</span>ATOLL_NUMBER<span style="color:#ff0080; font-weight:bold">],</span> messageArray<span style="color:#ff0080; font-weight:bold">[</span>TEAM_COLOR<span style="color:#ff0080; font-weight:bold">]);</span>
+      	            <span style="color:#ff0080; font-weight:bold">}</span>
+      	        <span style="color:#ff0080; font-weight:bold">}</span>
+    	      <span style="color:#ff0080; font-weight:bold">}</span>
+    	<span style="color:#ff0080; font-weight:bold">}</span>
+
+    	<span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span> <span style="color:#004466">TMRS12_IsTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">6</span><span style="color:#ff0080; font-weight:bold">) ==</span> TMRS12_EXPIRED<span style="color:#ff0080; font-weight:bold">){</span>
+    	    <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_ClearTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">6</span><span style="color:#ff0080; font-weight:bold">);</span>
+    	    <span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>DriveForward <span style="color:#ff0080; font-weight:bold">==</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">){</span>
+      	        DriveForward <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+      	        <span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>DriveSpeed <span style="color:#ff0080; font-weight:bold">&lt;</span> <span style="color:#800080; font-weight:bold">100</span><span style="color:#ff0080; font-weight:bold">){</span>
+        	        DriveSpeed<span style="color:#ff0080; font-weight:bold">++;</span>
+      	        <span style="color:#ff0080; font-weight:bold">}</span>
+      	    <span style="color:#ff0080; font-weight:bold">}</span>
+      	    <span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>DriveBackward <span style="color:#ff0080; font-weight:bold">==</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">){</span>
+      	        DriveBackward <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+      	        <span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>DriveSpeed <span style="color:#ff0080; font-weight:bold">&gt; -</span><span style="color:#800080; font-weight:bold">100</span><span style="color:#ff0080; font-weight:bold">){</span>
+      	            DriveSpeed<span style="color:#ff0080; font-weight:bold">--;</span>
+      	        <span style="color:#ff0080; font-weight:bold">}</span>
+      	    <span style="color:#ff0080; font-weight:bold">}</span>
+      	    <span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>DriveLeft <span style="color:#ff0080; font-weight:bold">==</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">){</span>
+      	        DriveLeft <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+      	        <span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>DriveHandle <span style="color:#ff0080; font-weight:bold">&gt;</span> <span style="color:#800080; font-weight:bold">40</span><span style="color:#ff0080; font-weight:bold">){</span>
+      	            DriveHandle<span style="color:#ff0080; font-weight:bold">--;</span>
+      	        <span style="color:#ff0080; font-weight:bold">}</span>
+
+      	    <span style="color:#ff0080; font-weight:bold">}</span>
+      	    <span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>DriveRight <span style="color:#ff0080; font-weight:bold">==</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">){</span>
+      	      DriveRight <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+      	      <span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>DriveHandle <span style="color:#ff0080; font-weight:bold">&lt;</span> <span style="color:#800080; font-weight:bold">140</span><span style="color:#ff0080; font-weight:bold">){</span>
+      	        DriveHandle<span style="color:#ff0080; font-weight:bold">++;</span>
+      	      <span style="color:#ff0080; font-weight:bold">}</span>
+      	    <span style="color:#ff0080; font-weight:bold">}</span>
+
+      	    <span style="color:#f27900">// Set Direction</span>
+      	    <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>DriveSpeed <span style="color:#ff0080; font-weight:bold">&gt;=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">){</span>
+      	      Direction <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+      	    <span style="color:#ff0080; font-weight:bold">}</span> <span style="color:#bb7977; font-weight:bold">else</span><span style="color:#ff0080; font-weight:bold">{</span>
+      	      Direction <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+      	    <span style="color:#ff0080; font-weight:bold">}</span>
+      	    <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">6</span><span style="color:#ff0080; font-weight:bold">,</span><span style="color:#800080; font-weight:bold">25</span><span style="color:#ff0080; font-weight:bold">);</span>
+    	<span style="color:#ff0080; font-weight:bold">}</span>
+
+
+      	<span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span> <span style="color:#004466">TMRS12_IsTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">7</span><span style="color:#ff0080; font-weight:bold">) ==</span> TMRS12_EXPIRED <span style="color:#ff0080; font-weight:bold">&amp;&amp;</span> SendingFlag <span style="color:#ff0080; font-weight:bold">==</span> <span style="color:#800080; font-weight:bold">1</span> <span style="color:#ff0080; font-weight:bold">) {</span>
+      	    <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_ClearTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">7</span><span style="color:#ff0080; font-weight:bold">);</span>
+
+      	    <span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>DriveSpeed <span style="color:#ff0080; font-weight:bold">&lt;</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">)</span>
+      	        DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">] = -</span> DriveSpeed<span style="color:#ff0080; font-weight:bold">;</span>
+      	    <span style="color:#bb7977; font-weight:bold">else</span>
+      	        DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">] =</span> DriveSpeed<span style="color:#ff0080; font-weight:bold">;</span>
+
+      	    DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">] =</span> Direction<span style="color:#ff0080; font-weight:bold">;</span>
+      	    DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">] =</span> DriveHandle<span style="color:#ff0080; font-weight:bold">;</span>
+      	    <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span><span style="color:#004466">printf</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#a68500">&quot;Speed: %d Direction: %d Heading: %d</span> <span style="color:#ff00ff; font-weight:bold">\r\n</span><span style="color:#a68500">&quot;</span><span style="color:#ff0080; font-weight:bold">,</span> DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">],</span> DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">],</span> DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">]);</span>
+      	    <span style="color:#004466">CreatePacket</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">3</span><span style="color:#ff0080; font-weight:bold">,</span> ACV_ADDRESS_MSB<span style="color:#ff0080; font-weight:bold">,</span>ACV_ADDRESS_LSB<span style="color:#ff0080; font-weight:bold">,</span>DIRECT_MESSAGE<span style="color:#ff0080; font-weight:bold">,</span>COMMAND_C2B<span style="color:#ff0080; font-weight:bold">,</span>DataToSend<span style="color:#ff0080; font-weight:bold">);</span>
+      	    <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">7</span><span style="color:#ff0080; font-weight:bold">,</span><span style="color:#800080; font-weight:bold">200</span><span style="color:#ff0080; font-weight:bold">);</span>
+      	    <span style="color:#f27900">//printf(&quot;200ms timer expired \r\n&quot;);</span>
+      	<span style="color:#ff0080; font-weight:bold">}</span>
+
+
+      	 <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#004466">kbhit</span><span style="color:#ff0080; font-weight:bold">() ==</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">) {</span>
+			    press <span style="color:#ff0080; font-weight:bold">= (</span><span style="color:#8080c0; font-weight:bold">char</span><span style="color:#ff0080; font-weight:bold">)</span><span style="color:#004466">getchar</span><span style="color:#ff0080; font-weight:bold">();</span>
+			    <span style="color:#bb7977; font-weight:bold">switch</span><span style="color:#ff0080; font-weight:bold">(</span>press<span style="color:#ff0080; font-weight:bold">) {</span>
+				    <span style="color:#bb7977; font-weight:bold">case</span> <span style="color:#a68500">'r'</span><span style="color:#ff0080; font-weight:bold">:</span>
+
+				        <span style="color:#bb7977; font-weight:bold">for</span><span style="color:#ff0080; font-weight:bold">(</span>j<span style="color:#ff0080; font-weight:bold">=</span><span style="color:#800080; font-weight:bold">0</span> <span style="color:#ff0080; font-weight:bold">;</span> j<span style="color:#ff0080; font-weight:bold">&lt;</span>readLength<span style="color:#ff0080; font-weight:bold">;</span> j<span style="color:#ff0080; font-weight:bold">++){</span>
+                            <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">printf</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#a68500">&quot;REC: 0x %X</span><span style="color:#ff00ff; font-weight:bold">\r\n</span><span style="color:#a68500">&quot;</span><span style="color:#ff0080; font-weight:bold">,</span>messageArray<span style="color:#ff0080; font-weight:bold">[</span>j<span style="color:#ff0080; font-weight:bold">]);</span>
+				        <span style="color:#ff0080; font-weight:bold">}</span>
+			    	<span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+			        <span style="color:#bb7977; font-weight:bold">case</span> <span style="color:#a68500">'m'</span><span style="color:#ff0080; font-weight:bold">:</span>
+			            <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span><span style="color:#004466">printf</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#a68500">&quot;Toggling send flag</span> <span style="color:#ff00ff; font-weight:bold">\r\n</span><span style="color:#a68500">&quot;</span><span style="color:#ff0080; font-weight:bold">);</span>
+			            <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>SendingFlag <span style="color:#ff0080; font-weight:bold">==</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">)</span>
+			                 SendingFlag <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+			            <span style="color:#bb7977; font-weight:bold">else</span>
+			                SendingFlag <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+			        <span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+			        <span style="color:#bb7977; font-weight:bold">case</span> <span style="color:#a68500">'w'</span><span style="color:#ff0080; font-weight:bold">:</span> <span style="color:#f27900">// Drive Forward</span>
+			           DriveForward <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+			    	  <span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+			    	  <span style="color:#bb7977; font-weight:bold">case</span> <span style="color:#a68500">'s'</span><span style="color:#ff0080; font-weight:bold">:</span>  <span style="color:#f27900">// Drive Backward</span>
+			    	     DriveBackward <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+			    	  <span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+			    	  <span style="color:#bb7977; font-weight:bold">case</span> <span style="color:#a68500">'a'</span><span style="color:#ff0080; font-weight:bold">:</span>  <span style="color:#f27900">// Drive Left</span>
+			    	     DriveLeft <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+			    	  <span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+			    	  <span style="color:#bb7977; font-weight:bold">case</span> <span style="color:#a68500">'d'</span><span style="color:#ff0080; font-weight:bold">:</span> <span style="color:#f27900">// Drive Right</span>
+				         DriveRight <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+			    	  <span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+			    <span style="color:#ff0080; font-weight:bold">}</span>
+      	 <span style="color:#ff0080; font-weight:bold">}</span>
+
+
+    <span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#ff0080; font-weight:bold">}</span>   <span style="color:#f27900">//Main Bracket</span>
+
+<span style="color:#0080c0; font-weight:bold">#endif</span>
+</pre>
+</body>
+</html>
+<!--HTML generated by highlight 2.13, http://www.andre-simon.de/-->

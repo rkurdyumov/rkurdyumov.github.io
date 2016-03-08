@@ -1,0 +1,42 @@
+TimerPIC Module Pseudocode
+
+/* Subroutines */
+
+TimerPIC_InitTimer: takes timer number Num, timer length NewTime,
+			returns TimerPIC_OK
+Save the timer length as TimerTime
+Save the current time as LastTime
+Return TimerPIC_OK
+
+TimerPIC_IsTimerExpired: takes timer number Num,
+			returns TimerPIC_EXPIRED or TimerPIC_NOT_EXPIRED
+If the current time - LastTime > TimerTime
+	Return TimerPIC_EXPIRED
+Else
+	Return TimerPIC_NOT_EXPIRED
+
+TimerPIC_GetTime: takes nothing, returns time
+Return time
+	
+TimerPIC_ISR: takes nothing, returns nothing
+Clear the source of the interrupt
+We're interrupted every 0.2048ms, so only update every 5th time	
+	Increment time
+	Reset counter
+
+/* Initializations */
+
+TimerPIC_Init: takes nothing, returns nothing
+Set up overflows every 0.2048 ms: 2^8*((20MHz/4)/4)
+Internal instruction clock (fosc/4)
+Assign prescaler to Timer0
+Prescaler = 1:4;
+Clear flag
+Turn on interrupt
+
+
+/* Interrupts */
+
+TimerExpired: takes nothing, returns nothing
+If timer0 has overflowed
+	Call TimerPIC_ISR

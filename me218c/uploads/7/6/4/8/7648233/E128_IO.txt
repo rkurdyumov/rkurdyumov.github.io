@@ -1,0 +1,190 @@
+/***********Sensor Inputs and Outputs Module***********/
+
+  
+// Boost Button: Timer 1 IC7 interrupt response 
+
+Clear interrupt flag
+If boost recharge counter is 100
+Set boost mode on
+Clear recharge timer flag and restart
+Clear boost timer flag and restart
+
+
+// FRONT wheel sensor: IC6 interrupt response
+
+Clear interrupt flag
+
+//Speed Calculation
+Update last time
+Save current time
+Calculate wheel rpm and scale to a number 0-100 
+[60sec/min * 1000ms/sec * (1/Period)] * 100/Max Speed
+
+//Direction Determination
+Update last flag
+Set current flag to FRONT
+If current flag = last flag (then we must have switched direction)
+        Toggle direction
+Check order BACK-MIDDLE-FRONT (FWD) or FRONT-MIDDLE-BACK (REV)
+Start timeout in case wheel stopped         
+
+
+// MIDDLE wheel sensor: IC5 interrupt response
+
+//Direction Determination
+Update last flag
+Set current flag to FRONT
+If current flag = last flag (then we must have switched direction)
+        Toggle direction
+Check order BACK-MIDDLE-FRONT (FWD) or FRONT-MIDDLE-BACK (REV)
+Start timeout in case wheel stopped         
+
+
+// BACK wheel sensor: IC4 interrupt response
+
+//Direction Determination
+Update last flag
+Set current flag to FRONT
+If current flag = last flag (then we must have switched direction)
+        Toggle direction
+Check order BACK-MIDDLE-FRONT (FWD) or FRONT-MIDDLE-BACK (REV)
+Start timeout in case wheel stopped         
+
+
+// Initialize I/O Pins
+
+Set A0-A1 to analog inputs
+Set port T3 to output for Boost Servo T2 for debug
+    Set T4,T5,T6,T7 are inputs
+    Set all U ports and T0,T1 to outputs for Atoll LED display
+
+
+//Initialize input capture 
+  
+Initialize timer 1
+Enable button interrupt (Port T7)
+Set up Timer 1 IC7
+	Set up to capture falling edges only
+	Clear Flag
+	Enable Interrupt
+	Set boost to uncharged initially
+	
+Enable Hall 1 (Port T6)
+	Set up Timer 1 IC6
+	Set up to capture falling edges only
+	Clear Flag
+	Enable Interrupt
+	
+Enable Hall 2 (Port T5)
+	Set up Timer 1 IC5
+	Set up to capture falling edges only
+	Clear Flag
+	Enable Interrupt
+	
+Enable Hall 3 (Port T4)
+	Set up Timer 1 IC4
+	Set up to capture falling edges only
+	Clear Flag
+	Enable Interrupt
+
+
+//Init Debug
+ 
+    Start running timer
+    Turn off 90 degree detect LED to start
+
+
+//UpdateDebug
+
+   If timer is expired
+	Clear timer flag
+	Toggle LED
+	Restart timer
+    	Turn on LED if we're close to 90 degree heading
+    		if((Heading - 90) < 20 || (90 - Heading) < 20)
+        			turn on LED
+
+
+// ReadWheelSpeed
+
+if Boost is on
+return boost value 
+if boost timer is expired
+		turn off boost mode
+return speed	
+
+
+// ReadWheelDirection
+
+return module variable for drive direction;
+
+
+// Read Handlebar
+
+Calculate heading based on analog voltage (0-5V) and map to 0°-180°    
+Heading = ((Analog Voltage - 363)*30/165);
+Return heading
+
+
+// Check Boost Recharge
+
+If Boost Recharge Counter < 100
+	If recharge timer is expired
+		Increment the boost counter so that it will be 100% charged after 20sec 
+                        Clear timer flag and restart timeout for next recharge interval
+    
+		
+// Check for a wheel sensor timeout
+
+If wheel timeout is expired
+	Set speed to 0
+	
+
+// Atoll LED Status
+
+If atoll 1
+If color is red
+Turn on red and turn off green
+	If color is green
+		Turn on green and turn off red            
+	If no color
+		Turn off red and green
+If atoll 2
+If color is red
+Turn on red and turn off green
+	If color is green
+		Turn on green and turn off red            
+	If no color
+		Turn off red and green
+If atoll 3
+If color is red
+Turn on red and turn off green
+	If color is green
+		Turn on green and turn off red            
+	If no color
+		Turn off red and green
+If atoll 4
+If color is red
+Turn on red and turn off green
+	If color is green
+		Turn on green and turn off red            
+	If no color
+		Turn off red and green
+If atoll 5
+If color is red
+Turn on red and turn off green
+	If color is green
+		Turn on green and turn off red            
+	If no color
+		Turn off red and green
+
+
+
+// AtollLEDOff
+
+Change atoll 1 to no color 
+Change atoll 2 to no color
+Change atoll 3 to no color
+Change atoll 4 to no color
+Change atoll 5 to no color
+
