@@ -389,6 +389,7 @@ body.affix .cento-header .nav-wrap {
 }
 /* Footer */
 .footer-wrap {
+visibility:hidden;
   width: 100%;
   background: #ffffff;
   border-top: 2px solid #f7f7f7;
