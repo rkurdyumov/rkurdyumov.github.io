@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<title>ME218C: Team Oregon Trail - Home</title>
+		<title>Software - ME218C: Team Oregon Trail</title>
 
 
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
@@ -55,7 +55,7 @@ var STYLE_PREFIX = 'wsite';
 		function initFlyouts(){
 			initPublishedFlyoutMenus(
 				[{"id":"649613859446537534","title":"Home","url":"index.html","target":""},{"id":"399033686226509678","title":"Meet the Team","url":"meet-the-team.html","target":""},{"id":"960549211610643090","title":"Project Scope","url":"project-scope.html","target":""},{"id":"675448040124882258","title":"Design","url":"design.html","target":""},{"id":"552995178627233817","title":"Bill of Materials","url":"bill-of-materials.html","target":""},{"id":"110110731269029956","title":"Gems of Wisdom","url":"gems-of-wisdom.html","target":""},{"id":"211829914662337551","title":"Media","url":"media.html","target":""}],
-				"649613859446537534",
+				"659026186710815580",
 				'',
 				'active',
 				false,
@@ -74,7 +74,7 @@ var STYLE_PREFIX = 'wsite';
 </script>
 		
 	</head>
-	<body class="no-header  wsite-theme-light  wsite-page-index"><div class="body-wrap">
+	<body class="no-header  wsite-theme-light  wsite-page-software"><div class="body-wrap">
 	
 	<div id="header">
 		<div class="nav-trigger hamburger">
@@ -98,7 +98,7 @@ var STYLE_PREFIX = 'wsite';
 	<div id="wrapper">
 		<div class="bg-wrapper">
 			<div id="navigation"><ul class="wsite-menu-default">
-		<li id="active"
+		<li id="pg649613859446537534"
 			class="wsite-menu-item-wrap"
 			>
 			<a href="index.html"
@@ -169,7 +169,7 @@ var STYLE_PREFIX = 'wsite';
 	
 </li>
 <li id="wsite-nav-659026186710815580"
-	class="wsite-menu-subitem-wrap "
+	class="wsite-menu-subitem-wrap wsite-nav-current"
 	>
 	<a href="software.html"
 		
@@ -223,9 +223,68 @@ var STYLE_PREFIX = 'wsite';
 </div>
 			<div id="content-wrapper">
 				<div id="content"><div id='wsite-content' class='wsite-elements wsite-not-footer'>
-<div class="paragraph" style="text-align:left;">ME218C is the third quarter of a three quarter series Graduate Class on Mechatronics at Stanford University. This year, students were asked to create a remote controlled boat that could be controlled in a unique way in order to play a game of "King of the Atolls", a capture the flag game involving 2 teams of 2 boats. We invite you to explore our design on how we created our boat and controller.</div>
+<h2 class="wsite-content-title" style="text-align:left;">Overall Software Design<br /></h2>
+<div class="paragraph" style="text-align:left;display:block;">To successfully play a game, our software design had to accomplish several key tasks:<br /><ol><li>Obtain an ASCII RFID key when swiping an RFID card (must be coded in Assembly).</li><li>Convert that ASCII key to a HEX serial number.&nbsp; If necessary, get a corresponding security key from the security controller.</li><li>Send and receive XBee radio messages on both the boat and bike.</li></ol>Since we couldn't find one 16 series PIC that could do 2 and 3, the simplest PIC network we could design involved 3 PICs (after coding up our PICs, we did actually find dsPICs that could do 2 and 3, but it was too late to change):<br /></div>
 
-<div><div style="text-align: center;"><a><img src="uploads/7/6/4/8/7648233/_3904552.jpg" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div></div>
+<div><div style="text-align: center;"><a><img src="uploads/7/6/4/8/7648233/_3176040.png" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div class="paragraph" style="text-align:left;">The RFID PIC (16F690) did task 1.&nbsp; The security PIC (16F690) did task 2.&nbsp; The Main PIC (16F777) and the E128 did task 3.&nbsp; We interfaced our three PICs using SPI.&nbsp; For simplicity, we made the Security PIC a master - it would retrieve an RFID key and send out a serial number and security key to the Main PIC.&nbsp; The RFID PIC signaled that it had a new key by lowering an I/O line tied to the Security PIC.<br /></div>
+
+<h2 class="wsite-content-title" style="text-align:left;">Process Flow Diagrams<br /></h2>
+<div class="paragraph" style="text-align:left;display:block;">The state machines for the RFID and security PICs were straighforward and always followed the same state progression.&nbsp; Instead we've attached the process flow diagrams, which quickly communicate the basic software design:<br /></div>
+
+<div><div style="text-align: center;"><a><img src="uploads/7/6/4/8/7648233/_7452689.png" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div><div style="text-align: center;"><a><img src="uploads/7/6/4/8/7648233/_2478019.png" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div class="paragraph" style="text-align:left;">Our RFID PIC originally had timeouts built in in case we didn't get a full RFID message, but this never occurred throughout the project and we had problems with using Timer0, so we took them out.<br /><br /><span>Note that <span style="font-weight: bold;">every </span>RFID scan proceeds through the above process diagrams.&nbsp; To avoid putting in lookup tables in our Security PIC, we try to get a security key for all card swipes, even color card swipes.&nbsp; On the Main PIC, once we determine that we've received a color swipe serial number, we just ignore the security key that was sent with it.</span><br /><a href="uploads/7/6/4/8/7648233/securitypic.c.html"><span></span></a><br /></div>
+
+<h2 class="wsite-content-title" style="text-align:left;">Communication State Machines</h2>
+
+<div class="paragraph" style="text-align:left;">There are two communications state machines that are used in tandem to receive and transmit a message. Both of these state machines are implemented in the same form on the E128 and the PIC. The only differences are with reference to the specific differences in registers between these microcontrollers.&nbsp;<br /><br />The receive message state machine shown below reads a packet of variable length sent by the XBee radio to the microcontroller and stores each byte of the message into an array. As the state machine transitions from one state to another, a byte is stored into the array. Additionally, the state machine calculates the Checksum from the XBee and ensures that the message is not corrupted. If it is, the state machine will flag a Checksum error flag.</div>
+
+<div><div style="text-align: left;"><a><img src="uploads/7/6/4/8/7648233/_6555303.png" style="margin-top: 10px; margin-bottom: 10px; margin-left: 0; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div class="paragraph" style="text-align:left;">The following state machine is the transmit message state machine which will take a message stored into an array and send it out to the XBee radio.</div>
+
+<div><div style="text-align: left;"><a><img src="uploads/7/6/4/8/7648233/_7375221.png" style="margin-top: 10px; margin-bottom: 10px; margin-left: 0; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<h2 class="wsite-content-title" style="text-align:left;">Main PIC State Machine</h2>
+
+<div><div style="text-align: left;"><a><img src="uploads/7/6/4/8/7648233/_9758115.png" style="margin-top: 10px; margin-bottom: 10px; margin-left: 0; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div class="paragraph" style="text-align:left;">After a Team Broadcast exceeds 255 transmissions, we chose to raise our team color flag halfway to signal that there was a timeout when trying to find a teammate. The state diagram shows that when this occurs there is a transition from the BROADCAST TEAM COLOR state to the GAME IDLE state. We prevented the user from actually playing the game and capturing atolls as a design choice in the software.<br /><br />Within the GAME ON state, there is an event checker that responds to messages received by the XBee radio. The event checker can be viewed in the code listings and pseudocode below.&nbsp;</div>
+
+<h2 class="wsite-content-title" style="text-align:left;">Code Listings<br /></h2>
+
+<div><div class="wsite-multicol"><div class="wsite-multicol-table-wrap" style="margin:0 -15px;">
+	<table class="wsite-multicol-table">
+		<tbody class="wsite-multicol-tbody">
+			<tr class="wsite-multicol-tr">
+				<td class="wsite-multicol-col" style="width:49.5%; padding:0 15px;">
+					
+						
+
+<h2 class="wsite-content-title" style="text-align:left;">CVC: E128 Code Listings<br /></h2>
+<div class="paragraph" style="text-align:left;display:block;"><span style="font-weight: bold; text-decoration: underline;">E128:</span><br /><span></span><a title="" href="uploads/7/6/4/8/7648233/main_rev2.c.html">main.c</a> / <a href="uploads/7/6/4/8/7648233/main.txt" title="">Pseudocode</a><br /><span></span><a title="" href="uploads/7/6/4/8/7648233/e128_io.c.html">E128_IO.c</a> / <a title="" href="uploads/7/6/4/8/7648233/e128_io.h.html">E128_IO.h<span></span></a> / <a href="uploads/7/6/4/8/7648233/e128_io.txt" title="">Pseudocode</a><br /><a title="" href="uploads/7/6/4/8/7648233/communication.h.html"><span>Communication.h</span></a><br /><span></span><br /></div>
+
+
+					
+				</td>				<td class="wsite-multicol-col" style="width:49.5%; padding:0 15px;">
+					
+						
+
+<h2 class="wsite-content-title" style="text-align:left;">ACV: PIC Code Listings<br /></h2>
+<div class="paragraph" style="text-align:left;display:block;"><span style="font-weight:bold">RFID PIC: </span><br /><a href="uploads/7/6/4/8/7648233/rfidmain.asm.html">RFIDMain.asm</a> / <a href="uploads/7/6/4/8/7648233/rfid.txt"><span>Pseudocode</span></a><br /><br /><span style="font-weight:bold">Security PIC:</span><br /><a href="uploads/7/6/4/8/7648233/securitypic.c.html">SecurityPIC.c</a> / <a href="uploads/7/6/4/8/7648233/securitypic.txt"><span>Pseudocode</span></a><br /><br /><span style="font-weight:bold">Main PIC:</span><br /><a href="uploads/7/6/4/8/7648233/mainpic.c.html">MainPIC.c</a> / <a href="uploads/7/6/4/8/7648233/mainpic.txt">Pseudocode</a><br /><a href="uploads/7/6/4/8/7648233/scimessage.c.html">SCIMessage.c</a> / <a href="uploads/7/6/4/8/7648233/scimessage.h.html">SCIMessage.h</a> / <a href="uploads/7/6/4/8/7648233/scimessage.txt">Pseudocode</a><br /><a href="uploads/7/6/4/8/7648233/mainio.c.html">MainIO.c</a> / <a href="uploads/7/6/4/8/7648233/mainio.h.html">MainIO.h</a> / <a href="uploads/7/6/4/8/7648233/mainio.txt">Pseudocode</a><br /><a href="uploads/7/6/4/8/7648233/timerpic.c.html">TimerPIC.c</a> / <a href="uploads/7/6/4/8/7648233/timerpic.h.html">TimerPIC.h</a> / <a href="uploads/7/6/4/8/7648233/timerpic.txt">Pseudocode</a><br /><a href="uploads/7/6/4/8/7648233/communication.h.html">Communication.h</a><br /><a href="uploads/7/6/4/8/7648233/messages.h.html"><span>Messages.h</span></a><br /><a href="uploads/7/6/4/8/7648233/timernumber.h.html">TimerNumber.h</a><br /><br /></div>
+
+
+					
+				</td>			</tr>
+		</tbody>
+	</table>
+</div></div></div>
+
+<div class="paragraph" style="text-align:left;">Alternatively, you can download all the code in a zip file below:<br /><a href="uploads/7/6/4/8/7648233/completecode.zip"><span>CompleteCode.zip</span></a><br /></div></div>
 </div>
 			</div>
 		</div>
@@ -236,7 +295,7 @@ var STYLE_PREFIX = 'wsite';
 	
 	<div class="navmobile-wrapper">
 		<div id="navmobile" class="nav"><ul class="wsite-menu-default">
-		<li id="active"
+		<li id="pg649613859446537534"
 			class="wsite-menu-item-wrap"
 			>
 			<a href="index.html"
@@ -307,7 +366,7 @@ var STYLE_PREFIX = 'wsite';
 	
 </li>
 <li id="wsite-nav-659026186710815580"
-	class="wsite-menu-subitem-wrap "
+	class="wsite-menu-subitem-wrap wsite-nav-current"
 	>
 	<a href="software.html"
 		

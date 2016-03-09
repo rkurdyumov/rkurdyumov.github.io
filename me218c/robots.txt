@@ -1,4 +1,0 @@
-Sitemap: http://teamoregontrail.weebly.com/sitemap.xml
-
-User-agent: *
-Disallow:

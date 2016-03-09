@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<title>ME218C: Team Oregon Trail - Home</title>
+		<title>Design - ME218C: Team Oregon Trail</title>
 
 
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
@@ -55,7 +55,7 @@ var STYLE_PREFIX = 'wsite';
 		function initFlyouts(){
 			initPublishedFlyoutMenus(
 				[{"id":"649613859446537534","title":"Home","url":"index.html","target":""},{"id":"399033686226509678","title":"Meet the Team","url":"meet-the-team.html","target":""},{"id":"960549211610643090","title":"Project Scope","url":"project-scope.html","target":""},{"id":"675448040124882258","title":"Design","url":"design.html","target":""},{"id":"552995178627233817","title":"Bill of Materials","url":"bill-of-materials.html","target":""},{"id":"110110731269029956","title":"Gems of Wisdom","url":"gems-of-wisdom.html","target":""},{"id":"211829914662337551","title":"Media","url":"media.html","target":""}],
-				"649613859446537534",
+				"675448040124882258",
 				'',
 				'active',
 				false,
@@ -74,7 +74,7 @@ var STYLE_PREFIX = 'wsite';
 </script>
 		
 	</head>
-	<body class="no-header  wsite-theme-light  wsite-page-index"><div class="body-wrap">
+	<body class="no-header  wsite-theme-light  wsite-page-design"><div class="body-wrap">
 	
 	<div id="header">
 		<div class="nav-trigger hamburger">
@@ -98,7 +98,7 @@ var STYLE_PREFIX = 'wsite';
 	<div id="wrapper">
 		<div class="bg-wrapper">
 			<div id="navigation"><ul class="wsite-menu-default">
-		<li id="active"
+		<li id="pg649613859446537534"
 			class="wsite-menu-item-wrap"
 			>
 			<a href="index.html"
@@ -131,7 +131,7 @@ var STYLE_PREFIX = 'wsite';
 			</a>
 			
 		</li>
-		<li id="pg675448040124882258"
+		<li id="active"
 			class="wsite-menu-item-wrap"
 			>
 			<a href="design.html"
@@ -223,9 +223,34 @@ var STYLE_PREFIX = 'wsite';
 </div>
 			<div id="content-wrapper">
 				<div id="content"><div id='wsite-content' class='wsite-elements wsite-not-footer'>
-<div class="paragraph" style="text-align:left;">ME218C is the third quarter of a three quarter series Graduate Class on Mechatronics at Stanford University. This year, students were asked to create a remote controlled boat that could be controlled in a unique way in order to play a game of "King of the Atolls", a capture the flag game involving 2 teams of 2 boats. We invite you to explore our design on how we created our boat and controller.</div>
+<h2 class="wsite-content-title" style="text-align:left;">Initial Design Ideas<br /></h2>
+<div class="paragraph" style="text-align:left;display:block;">We decided to go with a catamaran design fairly early on for a few reasons: simplicity, maneuverability, and stability.&nbsp; Below is a very early concept sketch:</div>
 
-<div><div style="text-align: center;"><a><img src="uploads/7/6/4/8/7648233/_3904552.jpg" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div></div>
+<div><div style="text-align: center;"><a><img src="uploads/7/6/4/8/7648233/_492911876.png" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div class="paragraph" style="text-align:left;">Our early concept involved using differentially driven propellers, with a dynamo driven by a paddle wheel for speed sensing (and closed loop speed control).&nbsp; We wanted to have a fan driven display of team color, as shown above, but we ran into lots of problems during early testing.<br /><span></span><br /><span>Initially, we went through a few controller ideas - steering wheel and sword w/ ultrasonic sensor were the frontrunners.&nbsp; However, we randomly got the idea of using a bike to control our boat, and immediately got hooked on the idea.</span><br /><span></span><br /><span>For the preliminary design review, the boat design was the same, and our bike design looked like:</span><br /></div>
+
+<div><div style="text-align: center;"><a><img src="uploads/7/6/4/8/7648233/_812268575.jpg" style="margin-top: 10px; margin-bottom: 10px; margin-left: 0; margin-right: 0; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div class="paragraph" style="text-align:left;">The bike's rear wheel would be fixed to a stationary trainer.&nbsp; We planned on using two Reed sensors on the rear wheel to calculate speed/direction.&nbsp; We mounted a fixed gear so that the bike could be pedaled forward and reverse.&nbsp; <br /><br /><span></span>For the heading, we wanted to avoid contact sensing (for robustness), so some early ideas were: grayscale detection with tape sensors, compass, optical angular encoder, ultrasonic sensor with spiral mount.&nbsp; The compass seemed like the easiest option, but all the ones we found online (with simple interfaces) were over $50.&nbsp; Instead, we ended up finding a rotary Hall effect sensor online with analog output for under $20, which fit our needs perfectly.<br /><br /><span>For our third user input, we leaned toward using a bike bell.&nbsp; This could be integrated with a push button, microphone, or force sensor to quickly rotate, spray water, or blow bubbles.</span><br /><br /><span></span>For micro-processing, we chose to use an E128 on the bike for ease of debugging.<span>&nbsp; </span><br /><br /><span></span><span>On the boat, we were required to have at least two microprocessors - with one coded in Assembly.</span>&nbsp; To reduce the number of PICs we had to use, we looked for a PIC with two UART modules (XBee, Security Controller), 2+ PWM (for our propellers), and &lt;= 40 pins (since we wrongly thought we had to use the PICSTART for programming).&nbsp; We couldn't find any 16 series PICs with those specs, so instead we bought a PIC16F777, which had everything we needed except for two UART modules.<br /></div>
+
+<h2 class="wsite-content-title" style="text-align:left;">Design Evolution<br /></h2>
+<div class="paragraph" style="text-align:left;display:block;">Although our primary design didn't change much after the preliminary design review, we did make some significant changes as we went along.<br /><br /><span></span>To make our lives easier, we decided to use a servo with flags mounted to display our team color.<br /><br /><span>After some initial testing, we found that using two Hall effect sensors to sense bike wheel speed/direction had a flaw.&nbsp; Our direction algorithm was simple - if we hit the same sensor twice in a row, we've changed direction.&nbsp; We assumed that we always overshot a sensor and then switched direction.&nbsp; In reality, if we switched direction without fully passing a sensor's high time region, we would not hit the same sensor twice in a row.&nbsp; </span>This actually happened frequently, causing us to miss direction switches.<br /><br /><span>Since this was impossible to fix in software, we had to change our design and add another Hall effect sensor.&nbsp; With three sensors, direction could be detected easily by examining the current and last sensor hits.</span><br /><br /><span>After using the rotary Hall effect sensor on the bike, we realized we could use it on the boat to sense water speed and direction.&nbsp; Attaching the sensor next to the paddle wheel gives us an analog voltage that could be sampled and converted to a rotational speed/direction.</span><br /><br /><span>Once we decided on all the I/O for the boat, we made a preliminary CAD design of the boat:</span><br /></div>
+
+<div><div style="text-align: center;"><a><img src="uploads/7/6/4/8/7648233/_9473410.jpg" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div><div style="text-align: center;"><a><img src="uploads/7/6/4/8/7648233/_8250811.jpg" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div class="paragraph" style="text-align:left;">The key features of our design were:<br /> <ul style=""><li style="">Servo mounting block for team color display</li><li style="">Supports for paddle wheel to measure boat speed and a side mount for a magnetic sensor</li><li style="">Internal structural supports to add rigidity to our foam</li><li style="">Acrylic top plate to secure components</li></ul>We also made a dashboard to place on the bike:<br /></div>
+
+<div><div style="text-align: center;"><a><img src="uploads/7/6/4/8/7648233/_5281034.jpg" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div class="paragraph" style="text-align:left;">The dashboard included room for a servo (left) to indicate boost recharging, holes for atoll capture LEDs, and a hole for the bike bell.<br /></div>
+
+<h2 class="wsite-content-title" style="text-align:left;">Final Design<br /></h2>
+<div class="paragraph" style="text-align:left;display:block;">Below is the final version of our boat.&nbsp; We made only a few modifications to the original CAD model:<br /><ol><li>Made a hole for the paddle wheel so that we could fit 2" paddles and have the rotation shaft out of the water.</li><li>Added access holes for putting in and taking out motors.</li><li>Moved the tupperware opening further back to make room for a paddle wheel.</li><li>Added holes so that we could insert bolts to support a steel wire canopy.</li></ol></div>
+
+<div><div style="text-align: center;"><a><img src="uploads/7/6/4/8/7648233/_5616904.jpg" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div></div>
 </div>
 			</div>
 		</div>
@@ -236,7 +261,7 @@ var STYLE_PREFIX = 'wsite';
 	
 	<div class="navmobile-wrapper">
 		<div id="navmobile" class="nav"><ul class="wsite-menu-default">
-		<li id="active"
+		<li id="pg649613859446537534"
 			class="wsite-menu-item-wrap"
 			>
 			<a href="index.html"
@@ -269,7 +294,7 @@ var STYLE_PREFIX = 'wsite';
 			</a>
 			
 		</li>
-		<li id="pg675448040124882258"
+		<li id="active"
 			class="wsite-menu-item-wrap"
 			>
 			<a href="design.html"

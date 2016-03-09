@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<title>ME218C: Team Oregon Trail - Home</title>
+		<title>Mechanical - ME218C: Team Oregon Trail</title>
 
 
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
@@ -55,7 +55,7 @@ var STYLE_PREFIX = 'wsite';
 		function initFlyouts(){
 			initPublishedFlyoutMenus(
 				[{"id":"649613859446537534","title":"Home","url":"index.html","target":""},{"id":"399033686226509678","title":"Meet the Team","url":"meet-the-team.html","target":""},{"id":"960549211610643090","title":"Project Scope","url":"project-scope.html","target":""},{"id":"675448040124882258","title":"Design","url":"design.html","target":""},{"id":"552995178627233817","title":"Bill of Materials","url":"bill-of-materials.html","target":""},{"id":"110110731269029956","title":"Gems of Wisdom","url":"gems-of-wisdom.html","target":""},{"id":"211829914662337551","title":"Media","url":"media.html","target":""}],
-				"649613859446537534",
+				"616263685927617493",
 				'',
 				'active',
 				false,
@@ -74,7 +74,7 @@ var STYLE_PREFIX = 'wsite';
 </script>
 		
 	</head>
-	<body class="no-header  wsite-theme-light  wsite-page-index"><div class="body-wrap">
+	<body class="no-header  wsite-theme-light  wsite-page-mechanical"><div class="body-wrap">
 	
 	<div id="header">
 		<div class="nav-trigger hamburger">
@@ -98,7 +98,7 @@ var STYLE_PREFIX = 'wsite';
 	<div id="wrapper">
 		<div class="bg-wrapper">
 			<div id="navigation"><ul class="wsite-menu-default">
-		<li id="active"
+		<li id="pg649613859446537534"
 			class="wsite-menu-item-wrap"
 			>
 			<a href="index.html"
@@ -143,7 +143,7 @@ var STYLE_PREFIX = 'wsite';
 			<div class="wsite-menu-wrap" style="display:none">
 	<ul class="wsite-menu">
 		<li id="wsite-nav-616263685927617493"
-	class="wsite-menu-subitem-wrap "
+	class="wsite-menu-subitem-wrap wsite-nav-current"
 	>
 	<a href="mechanical.html"
 		
@@ -223,9 +223,54 @@ var STYLE_PREFIX = 'wsite';
 </div>
 			<div id="content-wrapper">
 				<div id="content"><div id='wsite-content' class='wsite-elements wsite-not-footer'>
-<div class="paragraph" style="text-align:left;">ME218C is the third quarter of a three quarter series Graduate Class on Mechatronics at Stanford University. This year, students were asked to create a remote controlled boat that could be controlled in a unique way in order to play a game of "King of the Atolls", a capture the flag game involving 2 teams of 2 boats. We invite you to explore our design on how we created our boat and controller.</div>
+<h2 class="wsite-content-title" style="text-align:left;">Mechanical Design: Summary<br /></h2>
+<div class="paragraph" style="text-align:left;display:block;">  Our project was split in two separate sub-systems, the CVC (controller) and ACV (boat).&nbsp; Each system was outfitted with a ZigBee wireless radio for communication according to the protocol developed by the class. <br /><br />    For the controller, we instrumented a fixed gear bicycle to get speed and steering commands.&nbsp; To measure rear wheel speed, we mounted three magnets around the spokes and attached three hall-effect sensors to the bike frame.&nbsp; Using interrupt-based input captures, we determined the rotational velocity and mapped it to a 0-100 PWM duty cycle.&nbsp; From the same data, we determined the rotation direction based on the order the sensors are triggered.&nbsp; We found the direction of the handlebars using a rotary position IC containing multi-axis hall effect sensors.&nbsp; For our third input, the driver rang a bell (with a push button mounted inside) to initiate a boost.<br /><br />    We built a catamaran style boat with a dual propeller propulsion system. Our goal was to maximize the boat&rsquo;s stability by evenly distributing the weight and keeping a low center of mass. Using a differential drive strategy allowed the boat to move forwards, backwards, and change direction depending on the bike&rsquo;s commands.&nbsp; To improve the boat&rsquo;s response we added a paddle wheel to measure the boat speed, which gave us the opportunity to implement a control loop.&nbsp; To protect the electronics from water, we used a wire frame covered with clear plastic as well as Tupperware containers for each sub part. <br />  </div>
 
-<div><div style="text-align: center;"><a><img src="uploads/7/6/4/8/7648233/_3904552.jpg" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div></div>
+<h2 class="wsite-content-title" style="text-align:left;">Mechanical Design: Bike</h2>
+
+<div><div style="text-align: center;"><a href='uploads/7/6/4/8/7648233/_dsc_0445.jpg'><img src="uploads/7/6/4/8/7648233/_2962544.jpg" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div class="paragraph" style="text-align:left;">All the electronics for the controller were housed in a small container between the handlebars. On the top face, we attached a modified bell containing a push button to trigger the boost. Also, there is a five LED display that shows what team has control of each atoll. Lastly, a servo changes position as the boost recharges.<br /></div>
+
+<div><div style="text-align: center;"><a href='uploads/7/6/4/8/7648233/_dsc_0444.jpg'><img src="uploads/7/6/4/8/7648233/_8065711.jpg" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div class="paragraph" style="text-align:left;">We rigidly attached three hall-effect sensors to the bike frame via bolts. Three magnets were equally spaced on the spokes so there will be a regularly generated pulse.<br /></div>
+
+<div><div style="text-align: center;"><a href='uploads/7/6/4/8/7648233/_dsc_0368.jpg'><img src="uploads/7/6/4/8/7648233/_3311985.jpg" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div class="paragraph" style="text-align:left;">The Melexis rotary sensor was rigidly attached to the bike frame adjacent to two magnets on the handlebars.&nbsp; This allows us to determine the rotation of the handlebars relative to the bike.<br /></div>
+
+<h2 class="wsite-content-title" style="text-align:left;">Mechanical Design: Boat</h2>
+
+<div><div style="text-align: center;"><a href='uploads/7/6/4/8/7648233/_dsc_0448.jpg'><img src="uploads/7/6/4/8/7648233/_9848679.jpg" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div class="paragraph" style="text-align:left;">The team color flag (red or green) is lifted by a servo mounted at the stern.<br /></div>
+
+<div><div style="text-align: center;"><a href='uploads/7/6/4/8/7648233/_dsc_0359.jpg'><img src="uploads/7/6/4/8/7648233/_9361520.jpg" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div class="paragraph" style="text-align:left;">The first layer of water protection consists of a bent wire frame, covered by a clear plastic sheet, and attached to our main support plate using nuts and bolts.<br /></div>
+
+<div><div style="text-align: center;"><a href='uploads/7/6/4/8/7648233/_dsc_0521.jpg'><img src="uploads/7/6/4/8/7648233/_6245772.jpg" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div class="paragraph" style="text-align:left;"><br />Each half of the propulsion system consists of a propeller mounted to a 1/8" diameter shaft, which is connected to a H615-66430 motor using a u-joint coupling.&nbsp; The shaft is contained sleeve filled with Renolit ST-80 lubricant, which prevents water from moving up the shaft. Both motors were secured inside Tupperware containers with tightly fitting foam blocks.<br /></div>
+
+<div><div style="text-align: center;"><a href='uploads/7/6/4/8/7648233/_dsc_0449.jpg'><img src="uploads/7/6/4/8/7648233/_2697399.jpg" style="margin-top: 10px; margin-bottom: 10px; margin-left: 10px; margin-right: 10px; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div class="paragraph" style="text-align:left;">We built a paddle wheel out of acrylic and attached it to the bow with &frac14; inch roller bearings press fit into vertical acrylic supports. A Melexis rotary sensor was mounted adjacent to two magnets on the shaft allowing us to measure rotational velocity of the paddle wheel.<br /></div>
+
+<div><div style="text-align: center;"><a href='uploads/7/6/4/8/7648233/_dsc_0363.jpg'><img src="uploads/7/6/4/8/7648233/_7352770.jpg" style="margin-top: 10px; margin-bottom: 10px; margin-left: 0; margin-right: 0; border-width:1px;padding:3px;" alt="Picture" class="galleryImageBorder" /></a><div style="display: block; font-size: 90%; margin-top: -10px; margin-bottom: 10px;"></div></div></div>
+
+<div class="paragraph" style="text-align:left;">The RFID antenna was attached to the bow with an L-bracket making it easy to steer the it towards the atolls for capture.<br /></div>
+
+<h2 class="wsite-content-title" style="text-align:left;">CAD<br /></h2>
+<div class="paragraph" style="text-align:left;display:block;">Detailed drawings are shown below for the main parts of our CVC and ACV<br /></div>
+
+<div><div style="height: 20px; overflow: hidden;"></div>
+				<div id='434541074437291549-gallery' class='imageGallery' style='line-height: 0px; padding: 0; margin: 0'>
+<div id='434541074437291549-imageContainer0' style='float:left;width:33.28%;margin:0;'><div id='434541074437291549-insideImageContainer0' style='position:relative;margin:5px;padding:0 8px 8px 0'><div class='galleryImageHolder' style='position:relative; width:100%; padding:0 0 75.08%;'><div class='galleryInnerImageHolder'><a href='uploads/7/6/4/8/7648233/_dashboard.pdf' target='_blank'><img src='uploads/7/6/4/8/7648233/_6086415.png' class='galleryImage galleryImageBorder' _width='333' _height='196' style='position:absolute;border-width:1px;padding:3px;width:100%;top:10.8%;left:0%' /></a></div></div></div></div><div id='434541074437291549-imageContainer1' style='float:left;width:33.28%;margin:0;'><div id='434541074437291549-insideImageContainer1' style='position:relative;margin:5px;padding:0 8px 8px 0'><div class='galleryImageHolder' style='position:relative; width:100%; padding:0 0 75.08%;'><div class='galleryInnerImageHolder'><a href='uploads/7/6/4/8/7648233/_paddlewheel.pdf' target='_blank'><img src='uploads/7/6/4/8/7648233/_33278.png' class='galleryImage galleryImageBorder' _width='333' _height='200' style='position:absolute;border-width:1px;padding:3px;width:100%;top:10%;left:0%' /></a></div></div></div></div><div id='434541074437291549-imageContainer2' style='float:left;width:33.28%;margin:0;'><div id='434541074437291549-insideImageContainer2' style='position:relative;margin:5px;padding:0 8px 8px 0'><div class='galleryImageHolder' style='position:relative; width:100%; padding:0 0 75.08%;'><div class='galleryInnerImageHolder'><a href='uploads/7/6/4/8/7648233/_topplate.pdf' target='_blank'><img src='uploads/7/6/4/8/7648233/_3069893.png' class='galleryImage galleryImageBorder' _width='332' _height='250' style='position:absolute;border-width:1px;padding:3px;width:99.7%;top:0%;left:0.15%' /></a></div></div></div></div><div id='434541074437291549-imageContainer3' style='float:left;width:33.28%;margin:0;'><div id='434541074437291549-insideImageContainer3' style='position:relative;margin:5px;padding:0 8px 8px 0'><div class='galleryImageHolder' style='position:relative; width:100%; padding:0 0 75.08%;'><div class='galleryInnerImageHolder'><a href='uploads/7/6/4/8/7648233/_boat.pdf' target='_blank'><img src='uploads/7/6/4/8/7648233/_9635411.png' class='galleryImage galleryImageBorder' _width='333' _height='233' style='position:absolute;border-width:1px;padding:3px;width:100%;top:3.4%;left:0%' /></a></div></div></div></div><span style='display: block; clear: both; height: 0px; overflow: hidden;'></span>
+</div>
+
+				<div style="height: 20px; overflow: hidden;"></div></div></div>
 </div>
 			</div>
 		</div>
@@ -236,7 +281,7 @@ var STYLE_PREFIX = 'wsite';
 	
 	<div class="navmobile-wrapper">
 		<div id="navmobile" class="nav"><ul class="wsite-menu-default">
-		<li id="active"
+		<li id="pg649613859446537534"
 			class="wsite-menu-item-wrap"
 			>
 			<a href="index.html"
@@ -281,7 +326,7 @@ var STYLE_PREFIX = 'wsite';
 			<div class="wsite-menu-wrap" style="display:none">
 	<ul class="wsite-menu">
 		<li id="wsite-nav-616263685927617493"
-	class="wsite-menu-subitem-wrap "
+	class="wsite-menu-subitem-wrap wsite-nav-current"
 	>
 	<a href="mechanical.html"
 		

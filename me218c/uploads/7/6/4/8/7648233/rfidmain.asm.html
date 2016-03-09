@@ -1,0 +1,272 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<title>RFIDMain.asm</title>
+</head>
+<body style="background-color:#eeeeee">
+<pre style="color:#000000; background-color:#eeeeee; font-size:8pt; font-family:'Courier New';"><span style="color:#f27900">; RFID PIC Module</span>
+<span style="color:#f27900">; This module:</span>
+<span style="color:#f27900">; (1) Receives RFID bytes from RDM630 RFID card reader over UART</span>
+<span style="color:#f27900">; (2) Sends the exact message over to the Security PIC over SPI</span>
+<span style="color:#f27900">;</span>
+
+<span style="color:#f27900">;      PORT DIAGRAM AND PINOUT FOR RFID PIC</span>
+<span style="color:#f27900">;*************************************************</span>
+<span style="color:#f27900">; 1  +5V         VDD            VSS   GND        20</span>
+<span style="color:#f27900">; 2  OSC1        PORT A5    PORT A0   RFID_READY 19</span>
+<span style="color:#f27900">; 3  OSC2        PORT A4    PORT A1   	         18</span>
+<span style="color:#f27900">; 4              PORT A3    PORT A2              17</span>
+<span style="color:#f27900">; 5              PORT C5    PORT C0              16</span>
+<span style="color:#f27900">; 6              PORT C4    PORT C1              15</span>
+<span style="color:#f27900">; 7              PORT C3    PORT C2              14</span>
+<span style="color:#f27900">; 8  SPI-SS      PORT C6    PORT B4   SPI-SDI    13</span>
+<span style="color:#f27900">; 9  SPI-SDO     PORT C7    PORT B5   RX         12</span>
+<span style="color:#f27900">; 10             PORT B7    PORT B6   SPI-SCK    11</span>
+<span style="color:#f27900">;*************************************************</span>
+
+        list    P<span style="color:#ff0080; font-weight:bold">=</span>PIC16F690
+#<span style="color:#bb7977; font-weight:bold">include</span> <span style="color:#a68500">&quot;p16F690.inc&quot;</span>
+        __config <span style="color:#ff0080; font-weight:bold">(</span>_MCLRE_OFF <span style="color:#ff0080; font-weight:bold">&amp;</span> _CP_OFF <span style="color:#ff0080; font-weight:bold">&amp;</span> _WDT_OFF <span style="color:#ff0080; font-weight:bold">&amp;</span> _PWRTE_ON <span style="color:#ff0080; font-weight:bold">&amp;</span> _HS_OSC<span style="color:#ff0080; font-weight:bold">)</span>
+
+		errorlevel <span style="color:#ff0080; font-weight:bold">-</span><span style="color:#800080; font-weight:bold">302</span>	<span style="color:#f27900">; Get rid of Bank0 warning</span>
+<span style="color:#f27900">;</span>
+<span style="color:#f27900">; variable definitions, don't need banksel in common address space</span>
+<span style="color:#f27900">;</span>
+W_Temp			<span style="color:#bb7977; font-weight:bold">equ</span>		<span style="color:#800080; font-weight:bold">0x70</span>			<span style="color:#f27900">; Save W during interrupts</span>
+Status_Temp		<span style="color:#bb7977; font-weight:bold">equ</span>		<span style="color:#800080; font-weight:bold">0x71</span>			<span style="color:#f27900">; Save Status during interrupts</span>
+ByteCounter		<span style="color:#bb7977; font-weight:bold">equ</span>		<span style="color:#800080; font-weight:bold">0x72</span>
+Flags			<span style="color:#bb7977; font-weight:bold">equ</span>		<span style="color:#800080; font-weight:bold">0x74</span>
+
+<span style="color:#f27900">; Flags</span>
+Last_SPI		<span style="color:#bb7977; font-weight:bold">equ</span>		<span style="color:#800080; font-weight:bold">0</span>				<span style="color:#f27900">; Set when about to send last SPI</span>
+
+<span style="color:#f27900">; I/O</span>
+RFID_READY		<span style="color:#bb7977; font-weight:bold">equ</span>		<span style="color:#800080; font-weight:bold">0</span>				<span style="color:#f27900">; Transmit RFID data over the SPI line</span>
+
+<span style="color:#f27900">;</span>
+<span style="color:#f27900">; bit definitions</span>
+<span style="color:#f27900">;</span>
+SetBaudRate		<span style="color:#bb7977; font-weight:bold">equ</span>		<span style="color:#800080; font-weight:bold">0x81</span>			<span style="color:#f27900">; Ox81=129 =&gt; 20e6/(16(129+1)) = 9600</span>
+LastRFIDByte	<span style="color:#bb7977; font-weight:bold">equ</span>		<span style="color:#800080; font-weight:bold">0x0E</span>			<span style="color:#f27900">; 14th byte received</span>
+
+OutputPortsA	<span style="color:#bb7977; font-weight:bold">equ</span>		b<span style="color:#a68500">'11111000'</span>		<span style="color:#f27900">; Ports A0-A2 will be outputs</span>
+
+<span style="color:#f27900">;</span>
+<span style="color:#f27900">;Tables</span>
+<span style="color:#f27900">;</span>
+RFID0       <span style="color:#bb7977; font-weight:bold">equ</span>      	<span style="color:#800080; font-weight:bold">0x20</span>
+RFID1       <span style="color:#bb7977; font-weight:bold">equ</span>     	<span style="color:#800080; font-weight:bold">0x21</span>
+RFID2       <span style="color:#bb7977; font-weight:bold">equ</span>      	<span style="color:#800080; font-weight:bold">0x22</span>
+RFID3       <span style="color:#bb7977; font-weight:bold">equ</span>    		<span style="color:#800080; font-weight:bold">0x23</span>
+RFID4       <span style="color:#bb7977; font-weight:bold">equ</span>        	<span style="color:#800080; font-weight:bold">0x24</span>
+RFID5       <span style="color:#bb7977; font-weight:bold">equ</span>        	<span style="color:#800080; font-weight:bold">0x25</span>
+RFID6       <span style="color:#bb7977; font-weight:bold">equ</span>        	<span style="color:#800080; font-weight:bold">0x26</span>
+RFID7       <span style="color:#bb7977; font-weight:bold">equ</span>        	<span style="color:#800080; font-weight:bold">0x27</span>
+RFID8       <span style="color:#bb7977; font-weight:bold">equ</span>        	<span style="color:#800080; font-weight:bold">0x28</span>
+RFID9       <span style="color:#bb7977; font-weight:bold">equ</span>        	<span style="color:#800080; font-weight:bold">0x29</span>
+RFID10      <span style="color:#bb7977; font-weight:bold">equ</span>        	<span style="color:#800080; font-weight:bold">0x2A</span>
+RFID11      <span style="color:#bb7977; font-weight:bold">equ</span>        	<span style="color:#800080; font-weight:bold">0x2B</span>
+RFID12      <span style="color:#bb7977; font-weight:bold">equ</span>        	<span style="color:#800080; font-weight:bold">0x2C</span>
+RFID13      <span style="color:#bb7977; font-weight:bold">equ</span>        	<span style="color:#800080; font-weight:bold">0x2D</span>
+
+
+		<span style="color:#bb7977; font-weight:bold">org</span> <span style="color:#800080; font-weight:bold">0</span>
+			GOTO 		Main
+		<span style="color:#bb7977; font-weight:bold">org</span> <span style="color:#800080; font-weight:bold">4</span>
+         	GOTO		IntResponse
+		<span style="color:#bb7977; font-weight:bold">org</span> <span style="color:#800080; font-weight:bold">5</span>
+EndTbl
+<span style="color:#f27900">;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;</span>
+
+Main<span style="color:#ff0080; font-weight:bold">:</span>
+
+<span style="color:#f27900">; Run Initialization Routine</span>
+Initialize<span style="color:#ff0080; font-weight:bold">:</span>
+			BANKSEL		ANSEL			<span style="color:#f27900">; Set all analog bits to digital</span>
+			CLRF		ANSEL
+			CLRF		ANSELH
+
+			BANKSEL 	TRISA			<span style="color:#f27900">; Set output ports</span>
+			<span style="color:#f27900">;MOVLW		OutputPortsA</span>
+			<span style="color:#f27900">;ANDWF		TRISA,f</span>
+			BCF			TRISA<span style="color:#ff0080; font-weight:bold">,</span>RFID_READY
+
+			<span style="color:#f27900">; Regular I/O</span>
+			BANKSEL		PORTA		    <span style="color:#f27900">; Initialize port values</span>
+    	    CLRF   		PORTA 	        <span style="color:#f27900">; Clear all outputs, including RFID_RDY</span>
+
+			<span style="color:#f27900">; SCI (probably not needed)</span>
+			BANKSEL		TRISB
+			<span style="color:#bb7977; font-weight:bold">BSF</span>			TRISB<span style="color:#ff0080; font-weight:bold">,</span><span style="color:#800080; font-weight:bold">4</span>			<span style="color:#f27900">; SDI: Input</span>
+			<span style="color:#bb7977; font-weight:bold">BSF</span>			TRISB<span style="color:#ff0080; font-weight:bold">,</span><span style="color:#800080; font-weight:bold">6</span>			<span style="color:#f27900">; SCK: Input (from Master)</span>
+			BANKSEL		TRISC
+			<span style="color:#bb7977; font-weight:bold">BSF</span>			TRISC<span style="color:#ff0080; font-weight:bold">,</span><span style="color:#800080; font-weight:bold">6</span>			<span style="color:#f27900">; SS: Input</span>
+			BCF			TRISC<span style="color:#ff0080; font-weight:bold">,</span><span style="color:#800080; font-weight:bold">7</span>			<span style="color:#f27900">; SDO: Output</span>
+
+			<span style="color:#f27900">; EUSART (probably not needed)</span>
+			BANKSEL		TRISB
+			<span style="color:#bb7977; font-weight:bold">BSF</span>			TRISB<span style="color:#ff0080; font-weight:bold">,</span><span style="color:#800080; font-weight:bold">5</span>			<span style="color:#f27900">; RX: Input</span>
+			BCF			TRISB<span style="color:#ff0080; font-weight:bold">,</span><span style="color:#800080; font-weight:bold">7</span>			<span style="color:#f27900">; TX: Output</span>
+
+<span style="color:#f27900">; Configure EUSART</span>
+InitEusart<span style="color:#ff0080; font-weight:bold">:</span>
+			BANKSEL		TXSTA
+			BCF			TXSTA<span style="color:#ff0080; font-weight:bold">,</span>SYNC		<span style="color:#f27900">; Enable asynchronous serial transmission port</span>
+			<span style="color:#bb7977; font-weight:bold">BSF</span>			TXSTA<span style="color:#ff0080; font-weight:bold">,</span>TXEN		<span style="color:#f27900">; Enable transmissions</span>
+			BCF			TXSTA<span style="color:#ff0080; font-weight:bold">,</span>TX9		<span style="color:#f27900">; 8-bit transmit</span>
+			<span style="color:#bb7977; font-weight:bold">BSF</span>			TXSTA<span style="color:#ff0080; font-weight:bold">,</span> BRGH
+			BANKSEL		RCSTA
+			<span style="color:#bb7977; font-weight:bold">BSF</span>			RCSTA<span style="color:#ff0080; font-weight:bold">,</span>SPEN		<span style="color:#f27900">; Enable asynchronous serial reception port</span>
+			<span style="color:#bb7977; font-weight:bold">BSF</span>			RCSTA<span style="color:#ff0080; font-weight:bold">,</span>CREN		<span style="color:#f27900">; Enable receptions</span>
+			BCF			RCSTA<span style="color:#ff0080; font-weight:bold">,</span>RX9		<span style="color:#f27900">; 8-bit receive</span>
+
+			BANKSEL		SPBRG			<span style="color:#f27900">; Set baud rate to 9600</span>
+			MOVLW		SetBaudRate
+			MOVWF		SPBRG
+			CLRF		SPBRGH
+
+<span style="color:#f27900">; Configure SPI</span>
+InitSPI<span style="color:#ff0080; font-weight:bold">:</span>
+			BANKSEL		SSPCON
+			MOVLW		b<span style="color:#a68500">'00110100'</span>
+			MOVWF		SSPCON			<span style="color:#f27900">; 0xxxxxxx = No write collision detect</span>
+										<span style="color:#f27900">; x0xxxxxx = No receive overflow indicator</span>
+										<span style="color:#f27900">; xx1xxxxx = Enable serial port, SCK, SDO, SDI as serial pins</span>
+										<span style="color:#f27900">; xxx1xxxx = Clock idles high</span>
+										<span style="color:#f27900">; xxxx0100 = SPI Slave, clock = SCK, SS pin control enabled</span>
+			BANKSEL		SSPSTAT
+			MOVLW		b<span style="color:#a68500">'00000000'</span>
+			MOVWF		SSPSTAT			<span style="color:#f27900">; 0xxxxxxx = Data sampled in middle of output</span>
+										<span style="color:#f27900">; x0xxxxxx = Data transmitted on falling edge of SCK</span>
+										<span style="color:#f27900">; xxXXXXXX = Read only</span>
+
+			BCF			Flags<span style="color:#ff0080; font-weight:bold">,</span>Last_SPI	<span style="color:#f27900">; Not waiting to send our last SPI message</span>
+
+<span style="color:#f27900">; Configure Interrupts</span>
+InitInterrupts<span style="color:#ff0080; font-weight:bold">:</span>
+			BANKSEL		PIE1
+			<span style="color:#bb7977; font-weight:bold">BSF</span>			PIE1<span style="color:#ff0080; font-weight:bold">,</span>RCIE		<span style="color:#f27900">; EUSART from RFID</span>
+			<span style="color:#bb7977; font-weight:bold">BSF</span>			PIE1<span style="color:#ff0080; font-weight:bold">,</span>SSPIE		<span style="color:#f27900">; SPI from Security PIC</span>
+			BANKSEL		INTCON
+			<span style="color:#bb7977; font-weight:bold">BSF</span>			INTCON<span style="color:#ff0080; font-weight:bold">,</span>PEIE		<span style="color:#f27900">; Peripheral</span>
+			<span style="color:#bb7977; font-weight:bold">BSF</span>			INTCON<span style="color:#ff0080; font-weight:bold">,</span>GIE		<span style="color:#f27900">; Global</span>
+
+<span style="color:#f27900">; Initialize Variables</span>
+InitVariables<span style="color:#ff0080; font-weight:bold">:</span>
+
+			CLRF		ByteCounter		<span style="color:#f27900">; Byte counter is 0</span>
+
+<span style="color:#f27900">; Start endless loop while you wait for interrupts</span>
+<span style="color:#bb7977; font-weight:bold">Loop</span><span style="color:#ff0080; font-weight:bold">:</span>
+   			GOTO		<span style="color:#bb7977; font-weight:bold">Loop</span>
+
+
+
+<span style="color:#f27900">;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Functions;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;</span>
+
+<span style="color:#f27900">; Determine what interrupt was triggered and route to handling function</span>
+IntResponse<span style="color:#ff0080; font-weight:bold">:</span>
+
+			MOVWF   	W_Temp          <span style="color:#f27900">; Save W while in interrupt, accessible from any bank</span>
+    		SWAPF   	STATUS<span style="color:#ff0080; font-weight:bold">,</span>W        <span style="color:#f27900">; Swap STATUS nibbles and send to W</span>
+    		MOVWF   	Status_Temp		<span style="color:#f27900">; Save STATUS while in interrupt, accessible from any bank</span>
+
+			BANKSEL		PIR1
+			BTFSC		PIR1<span style="color:#ff0080; font-weight:bold">,</span>SSPIF		<span style="color:#f27900">; Check if we had an SPI message</span>
+			GOTO		SPIResponse
+			BTFSC		PIR1<span style="color:#ff0080; font-weight:bold">,</span>RCIF		<span style="color:#f27900">; Check if we had a EUSART message</span>
+			GOTO		EusartResponse
+			GOTO		IntDone			<span style="color:#f27900">; Error if this happens</span>
+
+<span style="color:#f27900">; SPI Response: send out RFID message</span>
+SPIResponse<span style="color:#ff0080; font-weight:bold">:</span>
+			BANKSEL		SSPBUF
+			MOVF		SSPBUF<span style="color:#ff0080; font-weight:bold">,</span>W		<span style="color:#f27900">; Probably not needed</span>
+
+			BANKSEL		PIR1
+			BCF			PIR1<span style="color:#ff0080; font-weight:bold">,</span>SSPIF		<span style="color:#f27900">; Clear SSPIF in software</span>
+
+			BTFSC		Flags<span style="color:#ff0080; font-weight:bold">,</span>Last_SPI	<span style="color:#f27900">;</span>
+			GOTO		LastSPI			<span style="color:#f27900">; Last time, so we shouldn't load in more values</span>
+			GOTO		NormalSPI		<span style="color:#f27900">; Middle time, just load in one value</span>
+
+<span style="color:#f27900">; Regular RFID send, so send byte while loading in next byte</span>
+NormalSPI<span style="color:#ff0080; font-weight:bold">:</span>
+			MOVLW		<span style="color:#800080; font-weight:bold">0x20</span>			<span style="color:#f27900">; Start of RFID Table</span>
+			ADDWF		ByteCounter<span style="color:#ff0080; font-weight:bold">,</span>W	<span style="color:#f27900">; Increment RFID Table by number of bytes we are at</span>
+			MOVWF		FSR				<span style="color:#f27900">; W = 0x20 + ByteCounter</span>
+			MOVF		INDF<span style="color:#ff0080; font-weight:bold">,</span>W			<span style="color:#f27900">; Load in the byte</span>
+			MOVWF		SSPBUF			<span style="color:#f27900">; Send it out next time through</span>
+
+			INCF		ByteCounter<span style="color:#ff0080; font-weight:bold">,</span>F	<span style="color:#f27900">; Increment byte</span>
+			MOVLW		LastRFIDByte
+			XORWF		ByteCounter<span style="color:#ff0080; font-weight:bold">,</span>W	<span style="color:#f27900">; Check if you sent out the last byte</span>
+			BTFSC 		STATUS<span style="color:#ff0080; font-weight:bold">,</span>Z
+			<span style="color:#bb7977; font-weight:bold">BSF</span>			Flags<span style="color:#ff0080; font-weight:bold">,</span>Last_SPI	<span style="color:#f27900">; If loaded in last RFID byte, set flag</span>
+
+			GOTO		IntDone
+
+<span style="color:#f27900">; Last RFID send, so get ready for RFID receive, don't load SSPBUF</span>
+LastSPI<span style="color:#ff0080; font-weight:bold">:</span>
+			CLRF		ByteCounter		<span style="color:#f27900">; If it is, done with message, so reset the ByteCounter</span>
+
+			BCF			Flags<span style="color:#ff0080; font-weight:bold">,</span>Last_SPI	<span style="color:#f27900">; Done with last RFID send</span>
+
+			BANKSEL		PORTA
+			BCF			PORTA<span style="color:#ff0080; font-weight:bold">,</span>RFID_READY<span style="color:#f27900">; Get ready for next RFID message send</span>
+
+			GOTO		IntDone
+
+<span style="color:#f27900">; A EUSART message from the RFID was received</span>
+EusartResponse<span style="color:#ff0080; font-weight:bold">:</span>
+			MOVLW		<span style="color:#800080; font-weight:bold">0x20</span>			<span style="color:#f27900">; Start of RFID Table</span>
+			ADDWF		ByteCounter<span style="color:#ff0080; font-weight:bold">,</span>W	<span style="color:#f27900">; Increment RFID Table by number of bytes we are at</span>
+
+			MOVWF		FSR				<span style="color:#f27900">; W = 0x20 + ByteCounter, load pointer</span>
+			BANKSEL		RCREG
+			MOVF		RCREG<span style="color:#ff0080; font-weight:bold">,</span>W			<span style="color:#f27900">; Take the Recieved Byte and move it to the RFID Table</span>
+			MOVWF		INDF			<span style="color:#f27900">; Should clear RCIF</span>
+
+
+			INCF		ByteCounter<span style="color:#ff0080; font-weight:bold">,</span>F	<span style="color:#f27900">; Increment Byte Recieved</span>
+			MOVLW		LastRFIDByte
+			XORWF		ByteCounter<span style="color:#ff0080; font-weight:bold">,</span>W	<span style="color:#f27900">; Check if you got the last byte</span>
+			BTFSC 		STATUS<span style="color:#ff0080; font-weight:bold">,</span>Z
+			<span style="color:#bb7977; font-weight:bold">CALL</span>		Last_EUSART		<span style="color:#f27900">;</span>
+
+			GOTO		IntDone
+
+<span style="color:#f27900">; Got our last EUSART message</span>
+Last_EUSART<span style="color:#ff0080; font-weight:bold">:</span>
+			CLRF		ByteCounter		<span style="color:#f27900">; If it is, done with message, so reset the ByteCounter</span>
+
+			BANKSEL		SSPBUF
+			MOVF		SSPBUF<span style="color:#ff0080; font-weight:bold">,</span>W		<span style="color:#f27900">; Probably not needed</span>
+			BANKSEL		PIR1
+			BCF			PIR1<span style="color:#ff0080; font-weight:bold">,</span>SSPIF		<span style="color:#f27900">; Clear SSPIF in software</span>
+
+			<span style="color:#f27900">; Preload the buffer so we can auto-send data when we get an SPI interrupt</span>
+			MOVLW		<span style="color:#800080; font-weight:bold">0x20</span>			<span style="color:#f27900">; Start of RFID Table</span>
+			ADDWF		ByteCounter<span style="color:#ff0080; font-weight:bold">,</span>W	<span style="color:#f27900">; Increment RFID Table by number of bytes we are at</span>
+			MOVWF		FSR				<span style="color:#f27900">; W = 0x20 + ByteCounter</span>
+			MOVF		INDF<span style="color:#ff0080; font-weight:bold">,</span>W			<span style="color:#f27900">; Load in the byte</span>
+
+			INCF		ByteCounter<span style="color:#ff0080; font-weight:bold">,</span>F	<span style="color:#f27900">; Increment Byte Received</span>
+
+			BANKSEL		PORTA
+			<span style="color:#bb7977; font-weight:bold">BSF</span>			PORTA<span style="color:#ff0080; font-weight:bold">,</span>RFID_READY<span style="color:#f27900">; Tell Master PIC we are read to send RFID message</span>
+
+			RETURN
+
+<span style="color:#f27900">; Exit interrupt response</span>
+IntDone<span style="color:#ff0080; font-weight:bold">:</span>
+			SWAPF		Status_Temp<span style="color:#ff0080; font-weight:bold">,</span>W	<span style="color:#f27900">; Swap nibbles in Status_Temp again and move to W</span>
+			MOVWF		STATUS			<span style="color:#f27900">; Restore status</span>
+			SWAPF		W_Temp<span style="color:#ff0080; font-weight:bold">,</span>F		<span style="color:#f27900">; Swap nibbles in W_Temp and overwrite the file</span>
+			SWAPF		W_Temp<span style="color:#ff0080; font-weight:bold">,</span>W		<span style="color:#f27900">; Swap nibbles in W_Temp and save in W</span>
+			RETFIE						<span style="color:#f27900">; Return and re-enable interrupts</span>
+			<span style="color:#bb7977; font-weight:bold">END</span>
+</pre>
+</body>
+</html>
+<!--HTML generated by highlight 2.13, http://www.andre-simon.de/-->

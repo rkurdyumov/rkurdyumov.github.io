@@ -1,0 +1,15 @@
+{
+	"responsive": true,
+	"tmpSocialIconFont": true,
+	"description": "Clean Lines is a true universal theme, and lives up to its name with a design that's crisp and professional. Clean Lines makes an impact with full-width-headers and classy color palettes. With both dark and light color schemes, Clean Lines is a beautifully styled blank slate for your brand to build on. Perfect for shops, consultants, nutritionists, and service businesses.",
+	"enableEditorJS": true,
+	"features": [
+		"responsive", 
+		"full-width-header", 
+		"light-dark-pallets",
+		"css-buttons", 
+		"social-icons", 
+		"navigation-top", 
+		"color-palettes"
+	]
+}

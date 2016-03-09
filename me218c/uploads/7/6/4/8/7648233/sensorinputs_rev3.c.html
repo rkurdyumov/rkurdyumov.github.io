@@ -1,0 +1,586 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<title>SensorInputs_rev3.c</title>
+</head>
+<body style="background-color:#eeeeee">
+<pre style="color:#000000; background-color:#eeeeee; font-size:8pt; font-family:'Courier New';"><span style="color:#f27900">// #define TESTING_SENSOR</span>
+<span style="color:#f27900">// #define LED_TEST</span>
+
+<span style="color:#f27900">// PS2=RECIEVE PS3=TRANSMIT</span>
+
+<span style="color:#ff8000">/***************************************************/</span>
+
+<span style="color:#f27900">// Import Library</span>
+<span style="color:#0080c0; font-weight:bold">#include &lt;hidef.h&gt;</span>      <span style="color:#ff8000">/* common defines and macros */</span><span style="color:#0080c0; font-weight:bold"></span>
+<span style="color:#0080c0; font-weight:bold">#include &lt;mc9s12e128.h&gt;</span> <span style="color:#ff8000">/* derivative information */</span><span style="color:#0080c0; font-weight:bold"></span>
+<span style="color:#0080c0; font-weight:bold">#include</span> <span style="color:#0000ff">&quot;ME218_E128.h&quot;</span><span style="color:#0080c0; font-weight:bold"></span>	<span style="color:#ff8000">/* bit definitions */</span><span style="color:#0080c0; font-weight:bold"></span>
+<span style="color:#0080c0; font-weight:bold">#include</span> <span style="color:#0000ff">&quot;S12eVec.h&quot;</span><span style="color:#0080c0; font-weight:bold"></span>		<span style="color:#ff8000">/* interrupts */</span><span style="color:#0080c0; font-weight:bold"></span>
+<span style="color:#0080c0; font-weight:bold">#include &lt;timers12.h&gt;</span>
+<span style="color:#0080c0; font-weight:bold">#include</span> <span style="color:#0000ff">&quot;ads12.h&quot;</span><span style="color:#0080c0; font-weight:bold"></span>
+<span style="color:#0080c0; font-weight:bold">#include &lt;stdio.h&gt;</span>
+<span style="color:#0080c0; font-weight:bold">#include</span> <span style="color:#0000ff">&quot;SensorInputs.h&quot;</span><span style="color:#0080c0; font-weight:bold"></span>
+<span style="color:#0080c0; font-weight:bold">#include</span> <span style="color:#0000ff">&quot;Communication.h&quot;</span><span style="color:#0080c0; font-weight:bold"></span> <span style="color:#f27900">//Includes Color Defines</span>
+<span style="color:#0080c0; font-weight:bold"></span><span style="color:#0080c0; font-weight:bold">#include</span> <span style="color:#0000ff">&quot;BoostServo.h&quot;</span><span style="color:#0080c0; font-weight:bold"></span>
+
+<span style="color:#ff8000">/*****************Module Defines**********************/</span>
+
+<span style="color:#f27900">// Define Numerical Constants</span>
+<span style="color:#0080c0; font-weight:bold">#define     TRUE            		1</span>
+<span style="color:#0080c0; font-weight:bold">#define     FALSE           		0</span>
+<span style="color:#0080c0; font-weight:bold">#define		ON						1</span>
+<span style="color:#0080c0; font-weight:bold">#define		OFF						0</span>
+<span style="color:#0080c0; font-weight:bold">#define		BOOST_VALUE				100</span>
+
+<span style="color:#0080c0; font-weight:bold">#define     VOLTAGE_SPAN    		330</span>
+<span style="color:#0080c0; font-weight:bold">#define     FORWARD         		0</span>
+<span style="color:#0080c0; font-weight:bold">#define     REVERSE         		1</span>
+
+
+
+<span style="color:#0080c0; font-weight:bold">#define     MAX_SPEED  				240</span> <span style="color:#f27900">// rpm for biking at 20 mph</span>
+<span style="color:#0080c0; font-weight:bold"></span>
+<span style="color:#ff8000">/******************Module Types*********************/</span>
+
+<span style="color:#0080c0">typedef</span> <span style="color:#8080c0; font-weight:bold">enum</span><span style="color:#ff0080; font-weight:bold">{</span>
+  FRONT_SENSOR<span style="color:#ff0080; font-weight:bold">,</span>
+  MIDDLE_SENSOR<span style="color:#ff0080; font-weight:bold">,</span>
+  BACK_SENSOR
+<span style="color:#ff0080; font-weight:bold">}</span> FlagHistory_t<span style="color:#ff0080; font-weight:bold">;</span>
+
+
+
+<span style="color:#ff8000">/*******************MODULE VARIABLES********************/</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned int</span> 	Speed <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span>	Boost <span style="color:#ff0080; font-weight:bold">=</span> OFF<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> 	Heading <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">90</span><span style="color:#ff0080; font-weight:bold">;</span>  <span style="color:#f27900">// 0 is West and 180 is East</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> 	HeadingOld <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">90</span><span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> 	DriveDirection <span style="color:#ff0080; font-weight:bold">=</span> FORWARD<span style="color:#ff0080; font-weight:bold">;</span>
+
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> 	BoostRechargeCounter<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span>	BoostState <span style="color:#ff0080; font-weight:bold">=</span> OFF<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> 	ISRFlag <span style="color:#ff0080; font-weight:bold">=</span> FALSE<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned int</span> 	LastTopWheelTime<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned int</span> 	CurrentTopWheelTime<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> 	LastMagnetFlag<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#8080c0; font-weight:bold">static unsigned char</span> 	CurrentMagnetFlag<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#ff8000">/****************PRIVATE FUNCTION PROTOTYPES***************/</span>
+
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">InitPins</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">);</span>
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">InitIC</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">);</span>
+
+<span style="color:#ff8000">/*******************INTERRUPT RESPONSES***********************/</span>
+
+<span style="color:#f27900">// Boost Button: Timer 1 IC7 interrupt response</span>
+<span style="color:#8080c0; font-weight:bold">void</span> interrupt _Vec_tim1ch7 <span style="color:#004466">ButtonPress</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">){</span>
+	<span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span><span style="color:#004466">printf</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#a68500">&quot;Button Pressed</span><span style="color:#ff00ff; font-weight:bold">\r\n</span><span style="color:#a68500">&quot;</span><span style="color:#ff0080; font-weight:bold">);</span>
+    TIM1_TFLG1 <span style="color:#ff0080; font-weight:bold">=</span> _S12_C7F<span style="color:#ff0080; font-weight:bold">;</span> <span style="color:#ff8000">/* clear IC7 flag */</span>
+    <span style="color:#f27900">// If you have a boost available, then use it</span>
+    <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>BoostRechargeCounter <span style="color:#ff0080; font-weight:bold">==</span> <span style="color:#800080; font-weight:bold">100</span><span style="color:#ff0080; font-weight:bold">){</span>
+    	<span style="color:#f27900">// Go to boost mode</span>
+    	Boost <span style="color:#ff0080; font-weight:bold">=</span> ON<span style="color:#ff0080; font-weight:bold">;</span>
+        <span style="color:#f27900">//(void)printf(&quot;Boost ON\r\n&quot;);</span>
+		<span style="color:#f27900">// Restart boost timer</span>
+	  	<span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_ClearTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span>RECHARGE_TIMEOUT<span style="color:#ff0080; font-weight:bold">);</span>    				<span style="color:#f27900">//Clear timer flag</span>
+	  	<span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span>RECHARGE_TIMEOUT<span style="color:#ff0080; font-weight:bold">,</span>RECHARGE_TIMEOUT_PERIOD<span style="color:#ff0080; font-weight:bold">);</span>  <span style="color:#f27900">//Start a timeout for next recharge interval</span>
+	    		<span style="color:#f27900">// Start boost timer</span>
+		<span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span>BOOST_TIMER<span style="color:#ff0080; font-weight:bold">,</span>BOOST_TIMER_LENGTH<span style="color:#ff0080; font-weight:bold">);</span>
+	    <span style="color:#f27900">//Reset BoostRechargeCounter and start waiting for next boost</span>
+	    BoostRechargeCounter <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+    <span style="color:#ff0080; font-weight:bold">}</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+
+<span style="color:#f27900">// FRONT wheel sensor: IC6 interrupt response</span>
+<span style="color:#8080c0; font-weight:bold">void</span> interrupt _Vec_tim1ch6 <span style="color:#004466">TopSensor</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span>
+<span style="color:#ff0080; font-weight:bold">{</span>
+    TIM1_TFLG1 <span style="color:#ff0080; font-weight:bold">=</span> _S12_C6F<span style="color:#ff0080; font-weight:bold">;</span> <span style="color:#ff8000">/* clear IC6 flag */</span>
+
+    <span style="color:#f27900">// Save time history for comparison before getting new time</span>
+    LastTopWheelTime <span style="color:#ff0080; font-weight:bold">=</span> CurrentTopWheelTime<span style="color:#ff0080; font-weight:bold">;</span>
+    CurrentTopWheelTime <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#004466">TMRS12_GetTime</span><span style="color:#ff0080; font-weight:bold">();</span>
+
+    <span style="color:#f27900">// Calculate the rpm of the wheel scaled to a number 0-100</span>
+    <span style="color:#f27900">// [60sec/min * 1000ms/sec * (1/Period)] * 100/Max Speed</span>
+    Speed <span style="color:#ff0080; font-weight:bold">= (</span><span style="color:#800080; font-weight:bold">60000</span><span style="color:#ff0080; font-weight:bold">/((</span>CurrentTopWheelTime <span style="color:#ff0080; font-weight:bold">-</span> LastTopWheelTime<span style="color:#ff0080; font-weight:bold">)*</span><span style="color:#800080; font-weight:bold">3</span><span style="color:#ff0080; font-weight:bold">))*</span><span style="color:#800080; font-weight:bold">100</span><span style="color:#ff0080; font-weight:bold">/</span>MAX_SPEED<span style="color:#ff0080; font-weight:bold">;</span>
+
+    <span style="color:#f27900">// Update flag history for direction determination</span>
+    LastMagnetFlag <span style="color:#ff0080; font-weight:bold">=</span> CurrentMagnetFlag<span style="color:#ff0080; font-weight:bold">;</span>
+    CurrentMagnetFlag <span style="color:#ff0080; font-weight:bold">=</span> FRONT_SENSOR<span style="color:#ff0080; font-weight:bold">;</span>
+    ISRFlag <span style="color:#ff0080; font-weight:bold">=</span> TRUE<span style="color:#ff0080; font-weight:bold">;</span>
+
+    <span style="color:#f27900">// To determine the direction, test the current and last interrupts</span>
+    <span style="color:#f27900">// If both were from the same sensor, then there was a direction change</span>
+    <span style="color:#f27900">// If the current and last interrupts were from different sensors, then the direction didn't change</span>
+    <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>CurrentMagnetFlag <span style="color:#ff0080; font-weight:bold">==</span> LastMagnetFlag<span style="color:#ff0080; font-weight:bold">){</span>
+
+        <span style="color:#f27900">//Toggle direction</span>
+        <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>DriveDirection <span style="color:#ff0080; font-weight:bold">==</span> FORWARD<span style="color:#ff0080; font-weight:bold">)</span>
+            DriveDirection <span style="color:#ff0080; font-weight:bold">=</span> REVERSE<span style="color:#ff0080; font-weight:bold">;</span>
+        <span style="color:#bb7977; font-weight:bold">else</span>
+            DriveDirection <span style="color:#ff0080; font-weight:bold">=</span> FORWARD<span style="color:#ff0080; font-weight:bold">;</span>
+    <span style="color:#ff0080; font-weight:bold">}</span>
+    <span style="color:#bb7977; font-weight:bold">else if</span><span style="color:#ff0080; font-weight:bold">(</span>LastMagnetFlag <span style="color:#ff0080; font-weight:bold">==</span> MIDDLE_SENSOR<span style="color:#ff0080; font-weight:bold">)</span>
+        DriveDirection <span style="color:#ff0080; font-weight:bold">=</span> FORWARD<span style="color:#ff0080; font-weight:bold">;</span>
+    <span style="color:#bb7977; font-weight:bold">else</span>
+        DriveDirection <span style="color:#ff0080; font-weight:bold">=</span> REVERSE<span style="color:#ff0080; font-weight:bold">;</span>
+
+
+    <span style="color:#f27900">// Start timeout timer</span>
+	<span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span>WHEEL_TIMEOUT<span style="color:#ff0080; font-weight:bold">,</span>WHEEL_TIMEOUT_PERIOD<span style="color:#ff0080; font-weight:bold">);</span>  <span style="color:#f27900">//Start a timeout in case wheel has stopped</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+
+
+
+<span style="color:#f27900">// MIDDLE wheel sensor: IC5 interrupt response</span>
+<span style="color:#8080c0; font-weight:bold">void</span> interrupt _Vec_tim1ch5 <span style="color:#004466">BottomSensor</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span>
+<span style="color:#ff0080; font-weight:bold">{</span>
+    TIM1_TFLG1 <span style="color:#ff0080; font-weight:bold">=</span> _S12_C5F<span style="color:#ff0080; font-weight:bold">;</span> <span style="color:#ff8000">/* clear IC5 flag */</span>
+
+    <span style="color:#f27900">// Update flag history for direction determination</span>
+    LastMagnetFlag <span style="color:#ff0080; font-weight:bold">=</span> CurrentMagnetFlag<span style="color:#ff0080; font-weight:bold">;</span>
+    CurrentMagnetFlag <span style="color:#ff0080; font-weight:bold">=</span> MIDDLE_SENSOR<span style="color:#ff0080; font-weight:bold">;</span>
+    ISRFlag <span style="color:#ff0080; font-weight:bold">=</span> TRUE<span style="color:#ff0080; font-weight:bold">;</span>
+
+    <span style="color:#f27900">// To determine the direction, test the current and last interrupts</span>
+    <span style="color:#f27900">// If both were from the same sensor, then there was a direction change</span>
+    <span style="color:#f27900">// If the current and last interrupts were from different sensors, then the direction didn't change</span>
+    <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>CurrentMagnetFlag <span style="color:#ff0080; font-weight:bold">==</span> LastMagnetFlag<span style="color:#ff0080; font-weight:bold">){</span>
+
+        <span style="color:#f27900">//Toggle direction</span>
+        <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>DriveDirection <span style="color:#ff0080; font-weight:bold">==</span> FORWARD<span style="color:#ff0080; font-weight:bold">)</span>
+            DriveDirection <span style="color:#ff0080; font-weight:bold">=</span> REVERSE<span style="color:#ff0080; font-weight:bold">;</span>
+        <span style="color:#bb7977; font-weight:bold">else</span>
+            DriveDirection <span style="color:#ff0080; font-weight:bold">=</span> FORWARD<span style="color:#ff0080; font-weight:bold">;</span>
+    <span style="color:#ff0080; font-weight:bold">}</span>
+    <span style="color:#bb7977; font-weight:bold">else if</span><span style="color:#ff0080; font-weight:bold">(</span>LastMagnetFlag <span style="color:#ff0080; font-weight:bold">==</span> BACK_SENSOR<span style="color:#ff0080; font-weight:bold">)</span>
+        DriveDirection <span style="color:#ff0080; font-weight:bold">=</span> FORWARD<span style="color:#ff0080; font-weight:bold">;</span>
+    <span style="color:#bb7977; font-weight:bold">else</span>
+        DriveDirection <span style="color:#ff0080; font-weight:bold">=</span> REVERSE<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#f27900">// BACK wheel sensor: IC4 interrupt response</span>
+<span style="color:#8080c0; font-weight:bold">void</span> interrupt _Vec_tim1ch4 <span style="color:#004466">LeftSensor</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span>
+<span style="color:#ff0080; font-weight:bold">{</span>
+    TIM1_TFLG1 <span style="color:#ff0080; font-weight:bold">=</span> _S12_C4F<span style="color:#ff0080; font-weight:bold">;</span> <span style="color:#ff8000">/* clear IC7 flag */</span>
+
+    <span style="color:#f27900">// Update flag history for direction determination</span>
+    LastMagnetFlag <span style="color:#ff0080; font-weight:bold">=</span> CurrentMagnetFlag<span style="color:#ff0080; font-weight:bold">;</span>
+    CurrentMagnetFlag <span style="color:#ff0080; font-weight:bold">=</span> BACK_SENSOR<span style="color:#ff0080; font-weight:bold">;</span>
+    ISRFlag <span style="color:#ff0080; font-weight:bold">=</span> TRUE<span style="color:#ff0080; font-weight:bold">;</span>
+
+    <span style="color:#f27900">// To determine the direction, test the current and last interrupts</span>
+    <span style="color:#f27900">// If both were from the same sensor, then there was a direction change</span>
+    <span style="color:#f27900">// If the current and last interrupts were from different sensors, then the direction didn't change</span>
+    <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>CurrentMagnetFlag <span style="color:#ff0080; font-weight:bold">==</span> LastMagnetFlag<span style="color:#ff0080; font-weight:bold">){</span>
+
+        <span style="color:#f27900">//Toggle direction</span>
+        <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>DriveDirection <span style="color:#ff0080; font-weight:bold">==</span> FORWARD<span style="color:#ff0080; font-weight:bold">)</span>
+            DriveDirection <span style="color:#ff0080; font-weight:bold">=</span> REVERSE<span style="color:#ff0080; font-weight:bold">;</span>
+        <span style="color:#bb7977; font-weight:bold">else</span>
+            DriveDirection <span style="color:#ff0080; font-weight:bold">=</span> FORWARD<span style="color:#ff0080; font-weight:bold">;</span>
+    <span style="color:#ff0080; font-weight:bold">}</span>
+    <span style="color:#bb7977; font-weight:bold">else if</span><span style="color:#ff0080; font-weight:bold">(</span>LastMagnetFlag <span style="color:#ff0080; font-weight:bold">==</span> FRONT_SENSOR<span style="color:#ff0080; font-weight:bold">)</span>
+        DriveDirection <span style="color:#ff0080; font-weight:bold">=</span> FORWARD<span style="color:#ff0080; font-weight:bold">;</span>
+    <span style="color:#bb7977; font-weight:bold">else</span>
+        DriveDirection <span style="color:#ff0080; font-weight:bold">=</span> REVERSE<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+
+<span style="color:#ff8000">/*************************FUNCTIONS***************************/</span>
+
+<span style="color:#f27900">// Initialize I/O Pins</span>
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">InitPins</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">){</span>
+
+    <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span><span style="color:#004466">ADS12_Init</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#a68500">&quot;OOOOOOAA&quot;</span><span style="color:#ff0080; font-weight:bold">);</span>
+    <span style="color:#f27900">// Set port T3 to output for Boost Servo T2 for debug</span>
+    DDRT <span style="color:#ff0080; font-weight:bold">|=</span> BIT3HI <span style="color:#ff0080; font-weight:bold">|</span> BIT2HI<span style="color:#ff0080; font-weight:bold">;</span>
+    <span style="color:#f27900">//Make sure T4,T5,T6,T7 are inputs</span>
+    DDRT <span style="color:#ff0080; font-weight:bold">&amp;=</span> BIT4LO <span style="color:#ff0080; font-weight:bold">&amp;</span> BIT5LO <span style="color:#ff0080; font-weight:bold">&amp;</span> BIT6LO <span style="color:#ff0080; font-weight:bold">&amp;</span> BIT7LO<span style="color:#ff0080; font-weight:bold">;</span>
+    <span style="color:#f27900">// Set all U ports and T0,T1 to outputs for Atoll LED display</span>
+    DDRU <span style="color:#ff0080; font-weight:bold">|=</span> BIT0HI <span style="color:#ff0080; font-weight:bold">|</span> BIT1HI <span style="color:#ff0080; font-weight:bold">|</span> BIT2HI <span style="color:#ff0080; font-weight:bold">|</span> BIT3HI <span style="color:#ff0080; font-weight:bold">|</span> BIT4HI <span style="color:#ff0080; font-weight:bold">|</span> BIT5HI <span style="color:#ff0080; font-weight:bold">|</span> BIT6HI <span style="color:#ff0080; font-weight:bold">|</span> BIT7HI<span style="color:#ff0080; font-weight:bold">;</span>
+    DDRT <span style="color:#ff0080; font-weight:bold">|=</span> BIT0HI <span style="color:#ff0080; font-weight:bold">|</span> BIT1HI<span style="color:#ff0080; font-weight:bold">;</span>
+    DDRP <span style="color:#ff0080; font-weight:bold">|= (</span>BIT1HI <span style="color:#ff0080; font-weight:bold">|</span> BIT0HI<span style="color:#ff0080; font-weight:bold">);</span>
+
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#f27900">//Initialize input capture for speed sensors and boost button</span>
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">InitIC</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">){</span>
+
+    <span style="color:#f27900">// Initialize timer 1</span>
+  	TIM1_TSCR1 <span style="color:#ff0080; font-weight:bold">=</span> _S12_TEN<span style="color:#ff0080; font-weight:bold">;</span>
+  	TIM1_TSCR2 <span style="color:#ff0080; font-weight:bold">= (</span>_S12_PR0 <span style="color:#ff0080; font-weight:bold">|</span> _S12_PR2<span style="color:#ff0080; font-weight:bold">);</span>
+
+    <span style="color:#f27900">// Enable button interrupt (Port T7)</span>
+	<span style="color:#f27900">// Set up Timer 1 IC7</span>
+	TIM1_TIOS <span style="color:#ff0080; font-weight:bold">&amp;= ~(</span>_S12_IOS7<span style="color:#ff0080; font-weight:bold">);</span>
+	<span style="color:#f27900">// Set upto capture falling edges only</span>
+	TIM1_TCTL3 <span style="color:#ff0080; font-weight:bold">&amp;= ~(</span>_S12_EDG7A<span style="color:#ff0080; font-weight:bold">);</span>
+	TIM1_TCTL3 <span style="color:#ff0080; font-weight:bold">|= (</span>_S12_EDG7B<span style="color:#ff0080; font-weight:bold">);</span>
+	<span style="color:#f27900">// Clear Flag</span>
+	TIM1_TFLG1 <span style="color:#ff0080; font-weight:bold">=</span> _S12_C7F<span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#f27900">// Enable Interrupt</span>
+	TIM1_TIE <span style="color:#ff0080; font-weight:bold">|=</span> _S12_C7I<span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#f27900">//Set boost to uncharged initially</span>
+	BoostRechargeCounter <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+	<span style="color:#f27900">// Enable Hall 1 (Port T6)</span>
+	<span style="color:#f27900">// Set up Timer 1 IC6</span>
+	TIM1_TIOS <span style="color:#ff0080; font-weight:bold">&amp;= ~(</span>_S12_IOS6<span style="color:#ff0080; font-weight:bold">);</span>
+	<span style="color:#f27900">// Set upto capture falling edges only</span>
+	TIM1_TCTL3 <span style="color:#ff0080; font-weight:bold">&amp;= ~(</span>_S12_EDG6A<span style="color:#ff0080; font-weight:bold">);</span>
+	TIM1_TCTL3 <span style="color:#ff0080; font-weight:bold">|= (</span>_S12_EDG6B<span style="color:#ff0080; font-weight:bold">);</span>
+	<span style="color:#f27900">// Clear Flag</span>
+	TIM1_TFLG1 <span style="color:#ff0080; font-weight:bold">=</span> _S12_C6F<span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#f27900">// Enable Interrupt</span>
+	TIM1_TIE <span style="color:#ff0080; font-weight:bold">|=</span> _S12_C6I<span style="color:#ff0080; font-weight:bold">;</span>
+
+	<span style="color:#f27900">// Enable Hall 2 (Port T5)</span>
+	<span style="color:#f27900">// Set up Timer 1 IC5</span>
+	TIM1_TIOS <span style="color:#ff0080; font-weight:bold">&amp;= ~(</span>_S12_IOS5<span style="color:#ff0080; font-weight:bold">);</span>
+	<span style="color:#f27900">// Set upto capture falling edges only</span>
+	TIM1_TCTL3 <span style="color:#ff0080; font-weight:bold">&amp;= ~(</span>_S12_EDG5A<span style="color:#ff0080; font-weight:bold">);</span>
+	TIM1_TCTL3 <span style="color:#ff0080; font-weight:bold">|= (</span>_S12_EDG5B<span style="color:#ff0080; font-weight:bold">);</span>
+	<span style="color:#f27900">// Clear Flag</span>
+	TIM1_TFLG1 <span style="color:#ff0080; font-weight:bold">=</span> _S12_C5F<span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#f27900">// Enable Interrupt</span>
+	TIM1_TIE <span style="color:#ff0080; font-weight:bold">|=</span> _S12_C5I<span style="color:#ff0080; font-weight:bold">;</span>
+
+	<span style="color:#f27900">// Enable Hall 3 (Port T4)</span>
+	<span style="color:#f27900">// Set up Timer 1 IC4</span>
+	TIM1_TIOS <span style="color:#ff0080; font-weight:bold">&amp;= ~(</span>_S12_IOS4<span style="color:#ff0080; font-weight:bold">);</span>
+	<span style="color:#f27900">// Set upto capture falling edges only</span>
+	TIM1_TCTL3 <span style="color:#ff0080; font-weight:bold">&amp;= ~(</span>_S12_EDG4A<span style="color:#ff0080; font-weight:bold">);</span>
+	TIM1_TCTL3 <span style="color:#ff0080; font-weight:bold">|= (</span>_S12_EDG4B<span style="color:#ff0080; font-weight:bold">);</span>
+	<span style="color:#f27900">// Clear Flag</span>
+	TIM1_TFLG1 <span style="color:#ff0080; font-weight:bold">=</span> _S12_C4F<span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#f27900">// Enable Interrupt</span>
+	TIM1_TIE <span style="color:#ff0080; font-weight:bold">|=</span> _S12_C4I<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">InitDebug</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">) {</span>
+
+    <span style="color:#f27900">// Start running timer</span>
+    <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span>RUNNING_TIMER<span style="color:#ff0080; font-weight:bold">,</span>RUNNING_TIMER_PERIOD<span style="color:#ff0080; font-weight:bold">);</span>
+    <span style="color:#f27900">// Turn off 90 degree detect LED to start\</span>
+    PTP <span style="color:#ff0080; font-weight:bold">&amp;=</span> BIT1LO<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">UpdateDebug</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">) {</span>
+
+   <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#004466">TMRS12_IsTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span>RUNNING_TIMER<span style="color:#ff0080; font-weight:bold">) ==</span> TMRS12_EXPIRED<span style="color:#ff0080; font-weight:bold">){</span>
+		<span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_ClearTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span>RUNNING_TIMER<span style="color:#ff0080; font-weight:bold">);</span>    	<span style="color:#f27900">// Clear timer flag</span>
+		PTP ^<span style="color:#ff0080; font-weight:bold">=</span> BIT0HI<span style="color:#ff0080; font-weight:bold">;</span>										<span style="color:#f27900">// Toggle LED</span>
+		PTP ^<span style="color:#ff0080; font-weight:bold">=</span> BIT1HI<span style="color:#ff0080; font-weight:bold">;</span>
+		<span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span>RUNNING_TIMER<span style="color:#ff0080; font-weight:bold">,</span>RUNNING_TIMER_PERIOD<span style="color:#ff0080; font-weight:bold">);</span> <span style="color:#f27900">// Start again</span>
+	<span style="color:#ff0080; font-weight:bold">}</span>
+	<span style="color:#ff8000">/*</span>
+<span style="color:#ff8000">    // Turn on LED if we're close to 90 degree heading</span>
+<span style="color:#ff8000">    if((Heading - 90) &lt; 20 || (90 - Heading) &lt; 20)</span>
+<span style="color:#ff8000">        PTP |= BIT1HI;</span>
+<span style="color:#ff8000">        */</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+
+<span style="color:#f27900">//Takes no inputs and returns the wheel speed</span>
+<span style="color:#8080c0; font-weight:bold">unsigned char</span> <span style="color:#004466">ReadWheelSpeed</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">){</span>
+
+    <span style="color:#8080c0; font-weight:bold">static unsigned char</span> returnSpeed<span style="color:#ff0080; font-weight:bold">;</span>
+    returnSpeed <span style="color:#ff0080; font-weight:bold">= (</span><span style="color:#8080c0; font-weight:bold">unsigned char</span><span style="color:#ff0080; font-weight:bold">)</span>Speed<span style="color:#ff0080; font-weight:bold">;</span>
+
+	<span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>Boost <span style="color:#ff0080; font-weight:bold">==</span> ON<span style="color:#ff0080; font-weight:bold">){</span>
+		returnSpeed <span style="color:#ff0080; font-weight:bold">=</span> BOOST_VALUE<span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#ff0080; font-weight:bold">}</span>
+	<span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#004466">TMRS12_IsTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span>BOOST_TIMER<span style="color:#ff0080; font-weight:bold">) ==</span> TMRS12_EXPIRED<span style="color:#ff0080; font-weight:bold">)   {</span>
+	    <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_ClearTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span>BOOST_TIMER<span style="color:#ff0080; font-weight:bold">);</span>
+	    Boost <span style="color:#ff0080; font-weight:bold">=</span> OFF<span style="color:#ff0080; font-weight:bold">;</span>
+	<span style="color:#ff0080; font-weight:bold">}</span>
+
+	<span style="color:#bb7977; font-weight:bold">return</span> <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">unsigned char</span><span style="color:#ff0080; font-weight:bold">)</span>returnSpeed<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+
+<span style="color:#f27900">//Takes no inputs and returns the wheel rotation direction</span>
+<span style="color:#8080c0; font-weight:bold">unsigned char</span> <span style="color:#004466">ReadWheelDirection</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">){</span>
+
+	<span style="color:#bb7977; font-weight:bold">return</span> DriveDirection<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+
+<span style="color:#f27900">//Takes no inputs and returns nothing, but modifies the handlebar heading with West=0 and East=180</span>
+<span style="color:#8080c0; font-weight:bold">unsigned char</span> <span style="color:#004466">ReadHandlebar</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">){</span>
+
+    Heading <span style="color:#ff0080; font-weight:bold">= (</span><span style="color:#8080c0; font-weight:bold">unsigned char</span><span style="color:#ff0080; font-weight:bold">)(((</span><span style="color:#8080c0; font-weight:bold">unsigned long</span><span style="color:#ff0080; font-weight:bold">)(</span><span style="color:#004466">ADS12_ReadADPin</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">)) -</span> <span style="color:#800080; font-weight:bold">363</span><span style="color:#ff0080; font-weight:bold">)*</span><span style="color:#800080; font-weight:bold">30</span><span style="color:#ff0080; font-weight:bold">/</span><span style="color:#800080; font-weight:bold">165</span><span style="color:#ff0080; font-weight:bold">);</span>
+
+    <span style="color:#bb7977; font-weight:bold">return</span> <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">unsigned char</span><span style="color:#ff0080; font-weight:bold">)</span>Heading<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+
+<span style="color:#f27900">//Takes no inputs and returns nothing, but modifies the handlebar heading with West=0 and East=180</span>
+<span style="color:#8080c0; font-weight:bold">unsigned char</span> <span style="color:#004466">ReadHandlebarOld</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">){</span>
+
+    HeadingOld <span style="color:#ff0080; font-weight:bold">= (</span><span style="color:#8080c0; font-weight:bold">unsigned char</span><span style="color:#ff0080; font-weight:bold">)((</span><span style="color:#8080c0; font-weight:bold">unsigned long</span><span style="color:#ff0080; font-weight:bold">)</span><span style="color:#004466">ADS12_ReadADPin</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">)*</span><span style="color:#800080; font-weight:bold">180</span><span style="color:#ff0080; font-weight:bold">/(</span>VOLTAGE_SPAN<span style="color:#ff0080; font-weight:bold">));</span>
+
+    <span style="color:#bb7977; font-weight:bold">return</span> <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">unsigned char</span><span style="color:#ff0080; font-weight:bold">)</span>HeadingOld<span style="color:#ff0080; font-weight:bold">;</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+<span style="color:#f27900">//Check if you should update the boost level</span>
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">CheckBoostRecharge</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">){</span>
+    <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>BoostRechargeCounter <span style="color:#ff0080; font-weight:bold">&lt;</span> <span style="color:#800080; font-weight:bold">100</span><span style="color:#ff0080; font-weight:bold">){</span>
+
+    	<span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#004466">TMRS12_IsTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span>RECHARGE_TIMEOUT<span style="color:#ff0080; font-weight:bold">) ==</span> TMRS12_EXPIRED<span style="color:#ff0080; font-weight:bold">){</span>
+    		<span style="color:#f27900">// Increment the boost by 5 so that it will be 100% charged after 20 seconds</span>
+    		BoostRechargeCounter<span style="color:#ff0080; font-weight:bold">++;</span>
+    		<span style="color:#f27900">// (void)printf(&quot;Recharge %d\r\n&quot;,BoostRechargeCounter);</span>
+
+    	    <span style="color:#f27900">// Clear timer flag and restart timeout for next recharge interval</span>
+    		<span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_ClearTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span>RECHARGE_TIMEOUT<span style="color:#ff0080; font-weight:bold">);</span>
+    		<span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span>RECHARGE_TIMEOUT<span style="color:#ff0080; font-weight:bold">,</span>RECHARGE_TIMEOUT_PERIOD<span style="color:#ff0080; font-weight:bold">);</span>
+    		<span style="color:#004466">UpdateBoostLevel</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">100</span><span style="color:#ff0080; font-weight:bold">-</span>BoostRechargeCounter<span style="color:#ff0080; font-weight:bold">);</span>
+
+    	<span style="color:#ff0080; font-weight:bold">}</span>
+    <span style="color:#ff0080; font-weight:bold">}</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+
+
+<span style="color:#f27900">// Check for a wheel sensor timeout</span>
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">CheckSensorTimeout</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">){</span>
+
+	<span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#004466">TMRS12_IsTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span>WHEEL_TIMEOUT<span style="color:#ff0080; font-weight:bold">) ==</span> TMRS12_EXPIRED<span style="color:#ff0080; font-weight:bold">){</span>
+
+		<span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_ClearTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span>WHEEL_TIMEOUT<span style="color:#ff0080; font-weight:bold">);</span>    	<span style="color:#f27900">// Clear timer flag</span>
+		Speed <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>											<span style="color:#f27900">// Set Speed to 0 since we are idle</span>
+		<span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">printf</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#a68500">&quot;Timeout</span><span style="color:#ff00ff; font-weight:bold">\r\n</span><span style="color:#a68500">&quot;</span><span style="color:#ff0080; font-weight:bold">);</span>
+	<span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+
+<span style="color:#f27900">// This funciton takes the atoll number and team that captured it to control the status LEDs</span>
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">AtollLED</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">unsigned char</span> AtollNumber<span style="color:#ff0080; font-weight:bold">,</span><span style="color:#8080c0; font-weight:bold">unsigned char</span> TeamColor<span style="color:#ff0080; font-weight:bold">){</span>
+
+    <span style="color:#bb7977; font-weight:bold">switch</span><span style="color:#ff0080; font-weight:bold">(</span>AtollNumber<span style="color:#ff0080; font-weight:bold">){</span>
+        <span style="color:#bb7977; font-weight:bold">case</span> ATOLL1<span style="color:#ff0080; font-weight:bold">:</span>
+            <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>TeamColor <span style="color:#ff0080; font-weight:bold">==</span> RED<span style="color:#ff0080; font-weight:bold">){</span>
+
+                <span style="color:#f27900">// Red On</span>
+                PTU <span style="color:#ff0080; font-weight:bold">|=</span> BIT0HI<span style="color:#ff0080; font-weight:bold">;</span>
+                <span style="color:#f27900">// Green Off</span>
+                PTU <span style="color:#ff0080; font-weight:bold">&amp;=</span> BIT1LO<span style="color:#ff0080; font-weight:bold">;</span>
+            <span style="color:#ff0080; font-weight:bold">}</span>
+            <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>TeamColor <span style="color:#ff0080; font-weight:bold">==</span> GREEN<span style="color:#ff0080; font-weight:bold">){</span>
+
+                <span style="color:#f27900">// Red Off</span>
+                PTU <span style="color:#ff0080; font-weight:bold">&amp;=</span> BIT0LO<span style="color:#ff0080; font-weight:bold">;</span>
+                <span style="color:#f27900">// Green On</span>
+                PTU <span style="color:#ff0080; font-weight:bold">|=</span> BIT1HI<span style="color:#ff0080; font-weight:bold">;</span>
+            <span style="color:#ff0080; font-weight:bold">}</span>
+            <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>TeamColor <span style="color:#ff0080; font-weight:bold">==</span> NO_COLOR<span style="color:#ff0080; font-weight:bold">){</span>
+
+                <span style="color:#f27900">// Red Off</span>
+                PTU <span style="color:#ff0080; font-weight:bold">|=</span> BIT0HI<span style="color:#ff0080; font-weight:bold">;</span>
+                <span style="color:#f27900">// Green Off</span>
+                PTU <span style="color:#ff0080; font-weight:bold">|=</span> BIT1HI<span style="color:#ff0080; font-weight:bold">;</span>
+            <span style="color:#ff0080; font-weight:bold">}</span>
+
+        <span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+        <span style="color:#bb7977; font-weight:bold">case</span> ATOLL2<span style="color:#ff0080; font-weight:bold">:</span>
+            <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>TeamColor <span style="color:#ff0080; font-weight:bold">==</span> RED<span style="color:#ff0080; font-weight:bold">){</span>
+
+                <span style="color:#f27900">// Red On</span>
+                PTU <span style="color:#ff0080; font-weight:bold">|=</span> BIT2HI<span style="color:#ff0080; font-weight:bold">;</span>
+                <span style="color:#f27900">// Green Off</span>
+                PTU <span style="color:#ff0080; font-weight:bold">&amp;=</span> BIT3LO<span style="color:#ff0080; font-weight:bold">;</span>
+            <span style="color:#ff0080; font-weight:bold">}</span>
+            <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>TeamColor <span style="color:#ff0080; font-weight:bold">==</span> GREEN<span style="color:#ff0080; font-weight:bold">){</span>
+
+                <span style="color:#f27900">// Red Off</span>
+                PTU <span style="color:#ff0080; font-weight:bold">&amp;=</span> BIT2LO<span style="color:#ff0080; font-weight:bold">;</span>
+                <span style="color:#f27900">// Green On</span>
+                PTU <span style="color:#ff0080; font-weight:bold">|=</span> BIT3HI<span style="color:#ff0080; font-weight:bold">;</span>
+            <span style="color:#ff0080; font-weight:bold">}</span>
+            <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>TeamColor <span style="color:#ff0080; font-weight:bold">==</span> NO_COLOR<span style="color:#ff0080; font-weight:bold">){</span>
+
+                <span style="color:#f27900">// Red Off</span>
+                PTU <span style="color:#ff0080; font-weight:bold">|=</span> BIT2HI<span style="color:#ff0080; font-weight:bold">;</span>
+                <span style="color:#f27900">// Green Off</span>
+                PTU <span style="color:#ff0080; font-weight:bold">|=</span> BIT3HI<span style="color:#ff0080; font-weight:bold">;</span>
+            <span style="color:#ff0080; font-weight:bold">}</span>
+
+        <span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+        <span style="color:#bb7977; font-weight:bold">case</span> ATOLL3<span style="color:#ff0080; font-weight:bold">:</span>
+            <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>TeamColor <span style="color:#ff0080; font-weight:bold">==</span> RED<span style="color:#ff0080; font-weight:bold">){</span>
+
+                <span style="color:#f27900">// Red On</span>
+                PTU <span style="color:#ff0080; font-weight:bold">|=</span> BIT4HI<span style="color:#ff0080; font-weight:bold">;</span>
+                <span style="color:#f27900">// Green Off</span>
+                PTU <span style="color:#ff0080; font-weight:bold">&amp;=</span> BIT5LO<span style="color:#ff0080; font-weight:bold">;</span>
+            <span style="color:#ff0080; font-weight:bold">}</span>
+            <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>TeamColor <span style="color:#ff0080; font-weight:bold">==</span> GREEN<span style="color:#ff0080; font-weight:bold">){</span>
+
+                <span style="color:#f27900">// Red Off</span>
+                PTU <span style="color:#ff0080; font-weight:bold">&amp;=</span> BIT4LO<span style="color:#ff0080; font-weight:bold">;</span>
+                <span style="color:#f27900">// Green On</span>
+                PTU <span style="color:#ff0080; font-weight:bold">|=</span> BIT5HI<span style="color:#ff0080; font-weight:bold">;</span>
+            <span style="color:#ff0080; font-weight:bold">}</span>
+            <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>TeamColor <span style="color:#ff0080; font-weight:bold">==</span> NO_COLOR<span style="color:#ff0080; font-weight:bold">){</span>
+
+                <span style="color:#f27900">// Red Off</span>
+                PTU <span style="color:#ff0080; font-weight:bold">|=</span> BIT4HI<span style="color:#ff0080; font-weight:bold">;</span>
+                <span style="color:#f27900">// Green Off</span>
+                PTU <span style="color:#ff0080; font-weight:bold">|=</span> BIT5HI<span style="color:#ff0080; font-weight:bold">;</span>
+            <span style="color:#ff0080; font-weight:bold">}</span>
+        <span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+        <span style="color:#bb7977; font-weight:bold">case</span> ATOLL4<span style="color:#ff0080; font-weight:bold">:</span>
+            <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>TeamColor <span style="color:#ff0080; font-weight:bold">==</span> RED<span style="color:#ff0080; font-weight:bold">){</span>
+
+                <span style="color:#f27900">// Red On</span>
+                PTU <span style="color:#ff0080; font-weight:bold">|=</span> BIT6HI<span style="color:#ff0080; font-weight:bold">;</span>
+                <span style="color:#f27900">// Green Off</span>
+                PTU <span style="color:#ff0080; font-weight:bold">&amp;=</span> BIT7LO<span style="color:#ff0080; font-weight:bold">;</span>
+            <span style="color:#ff0080; font-weight:bold">}</span>
+            <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>TeamColor <span style="color:#ff0080; font-weight:bold">==</span> GREEN<span style="color:#ff0080; font-weight:bold">){</span>
+
+                <span style="color:#f27900">// Red Off</span>
+                PTU <span style="color:#ff0080; font-weight:bold">&amp;=</span> BIT6LO<span style="color:#ff0080; font-weight:bold">;</span>
+                <span style="color:#f27900">// Green On</span>
+                PTU <span style="color:#ff0080; font-weight:bold">|=</span> BIT7HI<span style="color:#ff0080; font-weight:bold">;</span>
+            <span style="color:#ff0080; font-weight:bold">}</span>
+            <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>TeamColor <span style="color:#ff0080; font-weight:bold">==</span> NO_COLOR<span style="color:#ff0080; font-weight:bold">){</span>
+
+                <span style="color:#f27900">// Red Off</span>
+                PTU <span style="color:#ff0080; font-weight:bold">|=</span> BIT6HI<span style="color:#ff0080; font-weight:bold">;</span>
+                <span style="color:#f27900">// Green Off</span>
+                PTU <span style="color:#ff0080; font-weight:bold">|=</span> BIT7HI<span style="color:#ff0080; font-weight:bold">;</span>
+            <span style="color:#ff0080; font-weight:bold">}</span>
+        <span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+        <span style="color:#bb7977; font-weight:bold">case</span> ATOLL5<span style="color:#ff0080; font-weight:bold">:</span>
+            <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>TeamColor <span style="color:#ff0080; font-weight:bold">==</span> RED<span style="color:#ff0080; font-weight:bold">){</span>
+
+                <span style="color:#f27900">// Red On</span>
+                PTT <span style="color:#ff0080; font-weight:bold">|=</span> BIT0HI<span style="color:#ff0080; font-weight:bold">;</span>
+                <span style="color:#f27900">// Green Off</span>
+                PTT <span style="color:#ff0080; font-weight:bold">&amp;=</span> BIT1LO<span style="color:#ff0080; font-weight:bold">;</span>
+            <span style="color:#ff0080; font-weight:bold">}</span>
+            <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>TeamColor <span style="color:#ff0080; font-weight:bold">==</span> GREEN<span style="color:#ff0080; font-weight:bold">){</span>
+
+                <span style="color:#f27900">// Red Off</span>
+                PTT <span style="color:#ff0080; font-weight:bold">&amp;=</span> BIT0LO<span style="color:#ff0080; font-weight:bold">;</span>
+                <span style="color:#f27900">// Green On</span>
+                PTT <span style="color:#ff0080; font-weight:bold">|=</span> BIT1HI<span style="color:#ff0080; font-weight:bold">;</span>
+            <span style="color:#ff0080; font-weight:bold">}</span>
+            <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>TeamColor <span style="color:#ff0080; font-weight:bold">==</span> NO_COLOR<span style="color:#ff0080; font-weight:bold">){</span>
+
+                <span style="color:#f27900">// Red Off</span>
+                PTT <span style="color:#ff0080; font-weight:bold">|=</span> BIT0HI<span style="color:#ff0080; font-weight:bold">;</span>
+                <span style="color:#f27900">// Green Off</span>
+                PTT <span style="color:#ff0080; font-weight:bold">|=</span> BIT1HI<span style="color:#ff0080; font-weight:bold">;</span>
+            <span style="color:#ff0080; font-weight:bold">}</span>
+        <span style="color:#bb7977; font-weight:bold">break</span><span style="color:#ff0080; font-weight:bold">;</span>
+    <span style="color:#ff0080; font-weight:bold">}</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">AtollLEDOff</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">){</span>
+  <span style="color:#004466">AtollLED</span><span style="color:#ff0080; font-weight:bold">(</span>ATOLL1<span style="color:#ff0080; font-weight:bold">,</span> NO_COLOR<span style="color:#ff0080; font-weight:bold">);</span>
+  <span style="color:#004466">AtollLED</span><span style="color:#ff0080; font-weight:bold">(</span>ATOLL2<span style="color:#ff0080; font-weight:bold">,</span> NO_COLOR<span style="color:#ff0080; font-weight:bold">);</span>
+  <span style="color:#004466">AtollLED</span><span style="color:#ff0080; font-weight:bold">(</span>ATOLL3<span style="color:#ff0080; font-weight:bold">,</span> NO_COLOR<span style="color:#ff0080; font-weight:bold">);</span>
+  <span style="color:#004466">AtollLED</span><span style="color:#ff0080; font-weight:bold">(</span>ATOLL4<span style="color:#ff0080; font-weight:bold">,</span> NO_COLOR<span style="color:#ff0080; font-weight:bold">);</span>
+  <span style="color:#004466">AtollLED</span><span style="color:#ff0080; font-weight:bold">(</span>ATOLL5<span style="color:#ff0080; font-weight:bold">,</span> NO_COLOR<span style="color:#ff0080; font-weight:bold">);</span>
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#0080c0; font-weight:bold">#ifdef TESTING_SENSOR</span>
+
+<span style="color:#f27900">// Main: Takes nothing, Returns nothing</span>
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">main</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">) {</span>
+
+    <span style="color:#8080c0; font-weight:bold">static unsigned char</span> DataToSend<span style="color:#ff0080; font-weight:bold">[</span><span style="color:#800080; font-weight:bold">7</span><span style="color:#ff0080; font-weight:bold">];</span>
+
+    <span style="color:#f27900">// Initialize:</span>
+    <span style="color:#004466">TMRS12_Init</span><span style="color:#ff0080; font-weight:bold">(</span>TMRS12_RATE_1MS<span style="color:#ff0080; font-weight:bold">);</span>     <span style="color:#f27900">// Initialize 1ms timer</span>
+    <span style="color:#004466">InitIC</span><span style="color:#ff0080; font-weight:bold">();</span>
+    EnableInterrupts<span style="color:#ff0080; font-weight:bold">;</span>                 <span style="color:#f27900">// Enable global interrupts</span>
+
+    <span style="color:#f27900">// Get first values for speed and direction</span>
+    CurrentTopWheelTime <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#004466">TMRS12_GetTime</span><span style="color:#ff0080; font-weight:bold">();</span>
+    CurrentMagnetFlag <span style="color:#ff0080; font-weight:bold">=</span> BOTTOM_SENSOR<span style="color:#ff0080; font-weight:bold">;</span>
+    DriveDirection <span style="color:#ff0080; font-weight:bold">=</span> FORWARD<span style="color:#ff0080; font-weight:bold">;</span>
+
+	<span style="color:#f27900">// Setup first boost chraging</span>
+	<span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span>RECHARGE_TIMEOUT<span style="color:#ff0080; font-weight:bold">,</span>RECHARGE_TIMEOUT_PERIOD<span style="color:#ff0080; font-weight:bold">);</span>  <span style="color:#f27900">//Start a timeout for next recharge interval</span>
+	<span style="color:#f27900">// Clear BoostRechargeCounter and start waiting for next boost</span>
+	BoostRechargeCounter <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+
+	<span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">printf</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#a68500">&quot;Initialized</span><span style="color:#ff00ff; font-weight:bold">\r\n</span><span style="color:#a68500">&quot;</span><span style="color:#ff0080; font-weight:bold">);</span>
+    <span style="color:#f27900">// Loop Forver</span>
+    <span style="color:#bb7977; font-weight:bold">while</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">) {</span>
+
+        <span style="color:#004466">CheckSensorTimeout</span><span style="color:#ff0080; font-weight:bold">();</span>
+
+        <span style="color:#f27900">// Everytime there is an interrupt, update the data</span>
+        <span style="color:#bb7977; font-weight:bold">if</span><span style="color:#ff0080; font-weight:bold">(</span>ISRFlag <span style="color:#ff0080; font-weight:bold">==</span> TRUE<span style="color:#ff0080; font-weight:bold">){</span>
+
+        	<span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">printf</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#a68500">&quot;Speed %d	Direction %d</span><span style="color:#ff00ff; font-weight:bold">\r\n</span><span style="color:#a68500">&quot;</span><span style="color:#ff0080; font-weight:bold">,</span>Speed<span style="color:#ff0080; font-weight:bold">,</span>DriveDirection<span style="color:#ff0080; font-weight:bold">);</span>
+	       	<span style="color:#f27900">//(void) printf(&quot;Last Flag %d	Current Flag %d Last Time %d Current Time %d\r\n&quot;,LastMagnetFlag,CurrentMagnetFlag,LastTopWheelTime,CurrentTopWheelTime);</span>
+	       	<span style="color:#f27900">//(void) printf(&quot;Last Time %d Current Time %d Delta %d\r\n&quot;,LastTopWheelTime,CurrentTopWheelTime,Speed);</span>
+
+        	ISRFlag <span style="color:#ff0080; font-weight:bold">=</span> FALSE<span style="color:#ff0080; font-weight:bold">;</span>
+        <span style="color:#ff0080; font-weight:bold">}</span>
+
+    <span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#ff0080; font-weight:bold">}</span> <span style="color:#f27900">// Main Bracket</span>
+
+<span style="color:#0080c0; font-weight:bold">#endif</span>
+
+<span style="color:#0080c0; font-weight:bold">#ifdef LED_TEST</span>
+
+<span style="color:#8080c0; font-weight:bold">void</span> <span style="color:#004466">main</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">){</span>
+  <span style="color:#8080c0; font-weight:bold">unsigned char</span> state <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+  <span style="color:#004466">InitPins</span><span style="color:#ff0080; font-weight:bold">();</span>
+  <span style="color:#004466">AtollLEDOff</span><span style="color:#ff0080; font-weight:bold">();</span>
+
+  <span style="color:#004466">TMRS12_Init</span><span style="color:#ff0080; font-weight:bold">(</span>TMRS12_RATE_1MS<span style="color:#ff0080; font-weight:bold">);</span>
+  <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span> <span style="color:#004466">TMRS12_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">,</span><span style="color:#800080; font-weight:bold">1000</span><span style="color:#ff0080; font-weight:bold">);</span>
+
+
+   <span style="color:#bb7977; font-weight:bold">while</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">){</span>
+    <span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#004466">TMRS12_IsTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">) ==</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">){</span>
+              <span style="color:#bb7977; font-weight:bold">if</span> <span style="color:#ff0080; font-weight:bold">(</span>state <span style="color:#ff0080; font-weight:bold">==</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">){</span>
+        <span style="color:#f27900">// Turn all LEDs Green</span>
+          <span style="color:#004466">AtollLED</span><span style="color:#ff0080; font-weight:bold">(</span>ATOLL1<span style="color:#ff0080; font-weight:bold">,</span> GREEN<span style="color:#ff0080; font-weight:bold">);</span>
+          <span style="color:#004466">AtollLED</span><span style="color:#ff0080; font-weight:bold">(</span>ATOLL2<span style="color:#ff0080; font-weight:bold">,</span> GREEN<span style="color:#ff0080; font-weight:bold">);</span>
+          <span style="color:#004466">AtollLED</span><span style="color:#ff0080; font-weight:bold">(</span>ATOLL3<span style="color:#ff0080; font-weight:bold">,</span> GREEN<span style="color:#ff0080; font-weight:bold">);</span>
+          <span style="color:#004466">AtollLED</span><span style="color:#ff0080; font-weight:bold">(</span>ATOLL4<span style="color:#ff0080; font-weight:bold">,</span> GREEN<span style="color:#ff0080; font-weight:bold">);</span>
+          <span style="color:#004466">AtollLED</span><span style="color:#ff0080; font-weight:bold">(</span>ATOLL5<span style="color:#ff0080; font-weight:bold">,</span> GREEN<span style="color:#ff0080; font-weight:bold">);</span>
+          state <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">;</span>
+        <span style="color:#ff0080; font-weight:bold">}</span> <span style="color:#bb7977; font-weight:bold">else if</span> <span style="color:#ff0080; font-weight:bold">(</span>state <span style="color:#ff0080; font-weight:bold">==</span> <span style="color:#800080; font-weight:bold">1</span><span style="color:#ff0080; font-weight:bold">){</span>
+          <span style="color:#f27900">// Turn all LEDs Red</span>
+          <span style="color:#004466">AtollLED</span><span style="color:#ff0080; font-weight:bold">(</span>ATOLL1<span style="color:#ff0080; font-weight:bold">,</span> RED<span style="color:#ff0080; font-weight:bold">);</span>
+          <span style="color:#004466">AtollLED</span><span style="color:#ff0080; font-weight:bold">(</span>ATOLL2<span style="color:#ff0080; font-weight:bold">,</span> RED<span style="color:#ff0080; font-weight:bold">);</span>
+          <span style="color:#004466">AtollLED</span><span style="color:#ff0080; font-weight:bold">(</span>ATOLL3<span style="color:#ff0080; font-weight:bold">,</span> RED<span style="color:#ff0080; font-weight:bold">);</span>
+          <span style="color:#004466">AtollLED</span><span style="color:#ff0080; font-weight:bold">(</span>ATOLL4<span style="color:#ff0080; font-weight:bold">,</span> RED<span style="color:#ff0080; font-weight:bold">);</span>
+          <span style="color:#004466">AtollLED</span><span style="color:#ff0080; font-weight:bold">(</span>ATOLL5<span style="color:#ff0080; font-weight:bold">,</span> RED<span style="color:#ff0080; font-weight:bold">);</span>
+          state <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">;</span>
+        <span style="color:#ff0080; font-weight:bold">}</span> <span style="color:#bb7977; font-weight:bold">else if</span> <span style="color:#ff0080; font-weight:bold">(</span>state <span style="color:#ff0080; font-weight:bold">==</span> <span style="color:#800080; font-weight:bold">2</span><span style="color:#ff0080; font-weight:bold">) {</span>
+          <span style="color:#f27900">// Turn all LEDs Off</span>
+          <span style="color:#004466">AtollLEDOff</span><span style="color:#ff0080; font-weight:bold">();</span>
+          state <span style="color:#ff0080; font-weight:bold">=</span> <span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">;</span>
+        <span style="color:#ff0080; font-weight:bold">}</span>
+        <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span><span style="color:#004466">TMRS12_ClearTimerExpired</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">);</span>
+        <span style="color:#ff0080; font-weight:bold">(</span><span style="color:#8080c0; font-weight:bold">void</span><span style="color:#ff0080; font-weight:bold">)</span><span style="color:#004466">TMRS12_InitTimer</span><span style="color:#ff0080; font-weight:bold">(</span><span style="color:#800080; font-weight:bold">0</span><span style="color:#ff0080; font-weight:bold">,</span> <span style="color:#800080; font-weight:bold">1000</span><span style="color:#ff0080; font-weight:bold">);</span>
+    <span style="color:#ff0080; font-weight:bold">}</span>
+   <span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#ff0080; font-weight:bold">}</span>
+
+<span style="color:#0080c0; font-weight:bold">#endif</span>
+</pre>
+</body>
+</html>
+<!--HTML generated by highlight 2.13, http://www.andre-simon.de/-->
