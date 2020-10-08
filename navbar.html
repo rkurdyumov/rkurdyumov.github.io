@@ -18,7 +18,7 @@
   // active, which takes care of individual projects.
   document.querySelector("a.nav-link.active").classList.remove("active");
   if (location.pathname === "/") {
-    document.querySelector("a[href='index.html']").classList.add("active");
+    document.querySelector("a.nav-link[href='index.html']").classList.add("active");
   }
   else {
     let default_link = document.querySelector("a.nav-link.default");
