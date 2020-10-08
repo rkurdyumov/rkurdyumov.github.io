@@ -5,7 +5,7 @@
   </button>
   <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
     <div class="navbar-nav">
-      <a class="nav-item nav-link active" href="index.html">Home <span class="sr-only">(current)</span></a>
+      <a class="nav-item nav-link active" href="index.html">Home<span class="sr-only">(current)</span></a>
       <a class="nav-item nav-link" href="resume.html">Resume</a>
       <a class="nav-item nav-link default" href="projects.html">Projects</a>
       <a class="nav-item nav-link" href="about-me.html">About Me</a>
@@ -16,14 +16,15 @@
 <script>
   // Update the active link in the navbar. By default, set projects.html as
   // active, which takes care of individual projects.
-  document.querySelector("a.nav-item.nav-link.active").classList.remove("active");
-  let default_link = document.querySelector("a.nav-item.nav-link.default");
-  default_link.classList.add("active");
-  let links = document.querySelectorAll("a.nav-item.nav-link");
-  for (let i = 0; i < links.length; i++) {
-    if (location.pathname === links[i].pathname) {
-      default_link.classList.remove("active");
-      links[i].classList.add("active");
+  if (location.pathname !== "/") {
+    document.querySelector("a.nav-link.active").classList.remove("active");
+    let default_link = document.querySelector("a.nav-link.default");
+    default_link.classList.add("active");
+    for (var link of document.querySelectorAll("a.nav-link").entries()) {
+      if (location.pathname === link.pathname) {
+        default_link.classList.remove("active");
+        link.classList.add("active");
+      }
     }
   }
 </script>
