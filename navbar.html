@@ -1,0 +1,29 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <a class="navbar-brand" href="index.html">Ruslan Kurdyumov</a>
+  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+  <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
+    <div class="navbar-nav">
+      <a class="nav-item nav-link active" href="index.html">Home <span class="sr-only">(current)</span></a>
+      <a class="nav-item nav-link" href="resume.html">Resume</a>
+      <a class="nav-item nav-link default" href="projects.html">Projects</a>
+      <a class="nav-item nav-link" href="about-me.html">About Me</a>
+    </div>
+  </div>
+</nav>
+
+<script>
+  // Update the active link in the navbar. By default, set projects.html as
+  // active, which takes care of individual projects.
+  document.querySelector("a.nav-item.nav-link.active").classList.remove("active");
+  let default_link = document.querySelector("a.nav-item.nav-link.default");
+  default_link.classList.add("active");
+  let links = document.querySelectorAll("a.nav-item.nav-link");
+  for (let i = 0; i < links.length; i++) {
+    if (location.pathname === links[i].pathname) {
+      default_link.classList.remove("active");
+      links[i].classList.add("active");
+    }
+  }
+</script>

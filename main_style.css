@@ -1,0 +1,36 @@
+body {
+  font-family: "Playfair Display";
+}
+footer {
+  text-align: center;
+}
+.img-narrow {
+  width: 500px;
+}
+.img-short {
+  height: 350px;
+}
+@media (min-width: 576px) {
+    .card-columns {
+        column-count: 2;
+    }
+}
+@media (min-width: 768px) {
+    .card-columns {
+        column-count: 3;
+    }
+}
+@media (min-width: 992px) {
+    .card-columns {
+        column-count: 4;
+    }
+}
+.limit-width {
+  max-width:800px;
+}
+.navbar-brand {
+  font-size: 24px;
+}
+.navbar-nav {
+  font-size: 20px;
+}
