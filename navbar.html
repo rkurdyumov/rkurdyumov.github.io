@@ -16,14 +16,18 @@
 <script>
   // Update the active link in the navbar. By default, set projects.html as
   // active, which takes care of individual projects.
-  if (location.pathname !== "/") {
-    document.querySelector("a.nav-link.active").classList.remove("active");
+  document.querySelector("a.nav-link.active").classList.remove("active");
+  if (location.pathname === "/") {
+    document.querySelector("a[href='index.html']").classList.add("active");
+  }
+  else {
     let default_link = document.querySelector("a.nav-link.default");
     default_link.classList.add("active");
-    for (var link of document.querySelectorAll("a.nav-link").entries()) {
-      if (location.pathname === link.pathname) {
+    let links = document.querySelectorAll("a.nav-link");
+    for (let i = 0; i < links.length; i++) {
+      if (location.pathname === links[i].pathname) {
         default_link.classList.remove("active");
-        link.classList.add("active");
+        links[i].classList.add("active");
       }
     }
   }
