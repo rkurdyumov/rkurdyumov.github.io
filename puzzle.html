@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
+    <link rel="stylesheet" href="main_style.css">
+    <title>Puzzle</title>
+  </head>
+  <body>
+    <div id="nav-placeholder"></div>
+
+    <main class="container limit-width p-3 mx-0">
+      <style>
+      table { border-collapse: collapse; font-family: Calibri, sans-serif; }
+      colgroup, tbody { border: solid medium; }
+      td { border: solid thin; height: 2.0em; width: 2.0em; text-align: center; padding: 0; }
+      input { height: 100%; width: 100%; text-align: center; color: blue; border: none; padding: 0; }
+      </style>
+      <table>
+        <caption>Solve for a surprise!</caption>
+        <colgroup><col><col><col></colgroup>
+        <colgroup><col><col><col></colgroup>
+        <colgroup><col><col><col></colgroup>
+        <tbody>
+          <tr> <td>2                 <td><input type=tel>  <td><input type=tel>
+               <td>5                 <td>9                 <td>7
+               <td>1                 <td>4                 <td>8
+          <tr> <td><input type=tel>  <td><input type=tel>  <td><input type=tel>
+               <td><input type=tel>  <td><input type=tel>  <td><input type=tel>
+               <td><input type=tel>  <td><input type=tel>  <td><input type=tel>
+          <tr> <td>5                 <td><input type=tel>  <td>7
+               <td>4                 <td><input type=tel>  <td><input type=tel>
+               <td>9                 <td><input type=tel>  <td>3
+        <tbody>
+          <tr> <td>3                 <td><input type=tel>  <td><input type=tel>
+               <td><input type=tel>  <td><input type=tel>  <td>5
+               <td>6                 <td>2                 <td><input type=tel>
+          <tr> <td><input type=tel>  <td><input type=tel>  <td><input type=tel>
+               <td>3                 <td>2                 <td>9
+               <td><input type=tel>  <td><input type=tel>  <td><input type=tel>
+          <tr> <td><input type=tel>  <td>5                 <td>2
+               <td><input type=tel>  <td>6                 <td>4
+               <td><input type=tel>  <td>3                 <td>9
+        <tbody>
+          <tr> <td><input type=tel>  <td><input type=tel>  <td><input type=tel>
+               <td><input type=tel>  <td>4                 <td>3
+               <td><input type=tel>  <td><input type=tel>  <td><input type=tel>
+          <tr> <td>8                 <td>9                 <td><input type=tel>
+               <td><input type=tel>  <td><input type=tel>  <td><input type=tel>
+               <td>4                 <td>1                 <td><input type=tel>
+          <tr> <td><input type=tel>  <td>7                 <td>4
+               <td><input type=tel>  <td>8                 <td><input type=tel>
+               <td>3                 <td><input type=tel>  <td><input type=tel>
+      </table>
+      <button type="button" class="btn btn-secondary" onclick="checkPuzzle()";>Submit</button>
+      <button type="button" class="btn btn-warning" onclick="cheat()";>Cheat</button>
+
+      <div id="puzzle-output"></div>
+
+      <div id="success" hidden>
+        <hr>
+        <p>Congrats on completing the puzzle!  As a reward, I want to donate to
+          a human-trafficking charity of your choice. I know it's a cause near and
+          dear to your heart. I'm only starting to learn more, but in the meantime,
+          I want to do my part. Send me a recommendation below!
+        <form class="gform" method="POST"
+            action="https://script.google.com/macros/s/AKfycbyte6FKQwI47QA2JIKSrb8GtHAxDO-M5AEcOClEoKHLgsih5x8/exec">
+          <div class="form-group row col-sm-6">
+              <input class="form-control" id="name" name="charity" placeholder="Enter charity name">
+          </div>
+          <button type="submit" class="btn btn-secondary">Send</button>
+          <div class="thankyou_message form-group row col-sm-6" style="display:none;">
+            <p>Thanks for playing along! 😚
+          </div>
+        </form>
+      </div>
+
+    </main>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js" integrity="sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js" integrity="sha384-B4gt1jrGC7Jh4AgTPSdUtOBvfO8shuf57BaghqFfPlYxofvL8/KUEfYiJOMMV+rV" crossorigin="anonymous"></script>
+    <script src="load_placeholders.js"></script>
+    <script src="puzzle.js"></script>
+    <!-- Submit the Form to Google Using "AJAX" -->
+    <script data-cfasync="false" src="form-submission-handler.js"></script>
+  </body>
+</html>
