@@ -14,21 +14,19 @@
 </nav>
 
 <script>
-  // Update the active link in the navbar. By default, set projects.html as
+  // Update the active link in the navbar. If no match, set projects.html as
   // active, which takes care of individual projects.
   document.querySelector("a.nav-link.active").classList.remove("active");
-  if (location.pathname === "/") {
-    document.querySelector("a.nav-link[href='index.html']").classList.add("active");
-  }
-  else {
-    let default_link = document.querySelector("a.nav-link.default");
-    default_link.classList.add("active");
-    let links = document.querySelectorAll("a.nav-link");
-    for (let i = 0; i < links.length; i++) {
-      if (location.pathname === links[i].pathname) {
-        default_link.classList.remove("active");
-        links[i].classList.add("active");
-      }
+
+  document.querySelectorAll("a.nav-link").forEach(function(link) {
+    url = location.pathname.split(".html")[0];
+    link_url = link.pathname.split(".html")[0];
+    if (url === link_url || (url === "/" && link_url === "index")) {
+      link.classList.add("active");
     }
+  })
+
+  if (document.querySelector("a.nav-link.active") === null) {
+    document.querySelector("a.nav-link.default").classList.add("active");
   }
 </script>
