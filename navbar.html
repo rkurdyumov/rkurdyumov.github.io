@@ -21,7 +21,7 @@
   document.querySelectorAll("a.nav-link").forEach(function(link) {
     url = location.pathname.split(".html")[0];
     link_url = link.pathname.split(".html")[0];
-    if (url === link_url || (url === "/" && link_url === "index")) {
+    if (url === link_url || (url === "/" && link_url === "/index")) {
       link.classList.add("active");
     }
   })
